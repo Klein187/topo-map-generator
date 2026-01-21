@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, RotateCcw, ChevronUp, ChevronDown, Map, HelpCircle } from 'lucide-react';
+import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, HelpCircle } from 'lucide-react';
 
 // ============================================================================
 // CONSTANTS
@@ -663,6 +663,7 @@ export default function TopographicMapCreator() {
   const landElevationRef = useRef(100);
   const panStartRef = useRef({ x: 0, y: 0 });
   const drawingBiomeRef = useRef(null);
+  const undoHistoryRef = useRef([]);
 
   // State
   const [brushSize, setBrushSize] = useState(BRUSH_CONSTANTS.DEFAULT_SIZE);
@@ -682,6 +683,7 @@ export default function TopographicMapCreator() {
   const [drawMode, setDrawMode] = useState(DrawMode.PAINT_LAND);
   const [oceanDepth, setOceanDepth] = useState(-100);
   const [landElevation, setLandElevation] = useState(100);
+  const [canUndo, setCanUndo] = useState(false);
   const [previousBrushSize, setPreviousBrushSize] = useState(BRUSH_CONSTANTS.DEFAULT_SIZE);
   const [brushOutlinePos, setBrushOutlinePos] = useState({ x: 0, y: 0, visible: false });
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -1128,6 +1130,83 @@ export default function TopographicMapCreator() {
   }, []);
 
   // ============================================================================
+  // UNDO SYSTEM
+  // ============================================================================
+
+  const saveStateForUndo = useCallback(() => {
+    const currentElevationData = elevationDataRef.current;
+    const currentBlendMap = biomeBlendMapRef.current;
+
+    // Deep copy the elevation data
+    const elevationCopy = currentElevationData.map(row => [...row]);
+
+    // Deep copy the blend map
+    let blendMapCopy = null;
+    if (currentBlendMap) {
+      blendMapCopy = currentBlendMap.map(row =>
+        row.map(cell => ({ ...cell }))
+      );
+    }
+
+    // Add to history, keeping only last 3 states
+    undoHistoryRef.current.push({
+      elevationData: elevationCopy,
+      blendMap: blendMapCopy
+    });
+
+    // Keep only last 3 states
+    if (undoHistoryRef.current.length > 3) {
+      undoHistoryRef.current.shift();
+    }
+
+    // Update undo availability
+    setCanUndo(true);
+  }, []);
+
+  const undo = useCallback(() => {
+    if (undoHistoryRef.current.length === 0) return;
+
+    // Pop the last saved state
+    const previousState = undoHistoryRef.current.pop();
+
+    // Restore the state
+    elevationDataRef.current = previousState.elevationData;
+    biomeBlendMapRef.current = previousState.blendMap;
+
+    // Redraw the entire canvas
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const data = elevationDataRef.current;
+    const blendMap = biomeBlendMapRef.current;
+
+    for (let y = 0; y < data.length; y++) {
+      for (let x = 0; x < data[0].length; x++) {
+        const elev = data[y][x];
+        let color;
+
+        if (blendMap && blendMap[y]?.[x]) {
+          color = getBlendedElevationColor(elev, blendMap[y][x]);
+        } else {
+          color = getElevationColor(elev, selectedBiomes[0]);
+        }
+
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // Redraw contours if enabled
+    if (showContours) {
+      drawContourLines();
+    }
+
+    // Update undo availability
+    setCanUndo(undoHistoryRef.current.length > 0);
+  }, [selectedBiomes, showContours, drawContourLines]);
+
+  // ============================================================================
   // EVENT HANDLERS
   // ============================================================================
 
@@ -1169,6 +1248,9 @@ export default function TopographicMapCreator() {
       setDrawMode(DrawMode.PAINT_OCEAN);
     }
 
+    // Save state for undo before drawing
+    saveStateForUndo();
+
     isDrawingRef.current = true;
 
     if (drawMode === DrawMode.FLATTEN || (e.button === 0 && e.shiftKey)) {
@@ -1182,7 +1264,7 @@ export default function TopographicMapCreator() {
     }
 
     draw(e);
-  }, [isAddingLabel, isPanMode, pan, zoom, drawMode, getCanvasCoordinates, draw]);
+  }, [isAddingLabel, isPanMode, pan, zoom, drawMode, getCanvasCoordinates, draw, saveStateForUndo]);
 
   const stopDrawing = useCallback(() => {
     isDrawingRef.current = false;
@@ -1404,6 +1486,10 @@ export default function TopographicMapCreator() {
   const generateRandomMap = useCallback((useSeed = null, landPercent = 50) => {
     setGeneratingTerrain(true);
 
+    // Clear undo history when generating new map
+    undoHistoryRef.current = [];
+    setCanUndo(false);
+
     setTimeout(() => {
       const newSeed = useSeed !== null ? useSeed : Math.random() * 100000;
       setSeed(newSeed.toString());
@@ -1487,12 +1573,16 @@ export default function TopographicMapCreator() {
       }
     }
     elevationDataRef.current = data;
-    
+
     // Reset biome maps
     const clearSeed = Math.random() * 100000;
     biomeMapRef.current = generateBiomeMap(canvasWidth, canvasHeight, clearSeed, selectedBiomes);
     biomeBlendMapRef.current = generateBiomeBlendMap(canvasWidth, canvasHeight, clearSeed, selectedBiomes);
-    
+
+    // Clear undo history when clearing canvas
+    undoHistoryRef.current = [];
+    setCanUndo(false);
+
     setLabels([]);
     setSeed('');
     setInputSeed('');
@@ -2030,21 +2120,22 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('reset')}
+            onMouseEnter={() => helpMode && setHoveredButton('undo')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
-              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+              onClick={undo}
+              disabled={!canUndo}
+              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ cursor: helpMode ? 'help' : (!canUndo ? 'not-allowed' : 'pointer') }}
             >
-              <RotateCcw size={18} />
+              <Undo size={18} />
             </button>
-            {helpMode && hoveredButton === 'reset' && (
+            {helpMode && hoveredButton === 'undo' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Reset View</div>
-                <div className="text-slate-400 text-xs">Reset zoom and pan to default position.</div>
+                <div className="text-slate-100 font-medium text-sm">Undo</div>
+                <div className="text-slate-400 text-xs">Undo your last drawing action (up to 3 actions).</div>
               </div>
             )}
           </div>
