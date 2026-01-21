@@ -637,6 +637,7 @@ export default function TopographicMapCreator() {
   const [isPanning, setIsPanning] = useState(false);
   const [showElevationNumbers, setShowElevationNumbers] = useState(false);
   const [cursorElevation, setCursorElevation] = useState(null);
+  const [cursorScreenPos, setCursorScreenPos] = useState({ x: 0, y: 0 });
   const [drawMode, setDrawMode] = useState(DrawMode.RAISE);
   const [previousBrushSize, setPreviousBrushSize] = useState(BRUSH_CONSTANTS.DEFAULT_SIZE);
   const [brushOutlinePos, setBrushOutlinePos] = useState({ x: 0, y: 0, visible: false });
@@ -1102,14 +1103,15 @@ export default function TopographicMapCreator() {
       draw(e);
     }
 
-    // Rarely update elevation display
-    if (showElevationNumbers && Math.random() > 0.9) {
+    // Update elevation display and cursor position
+    if (showElevationNumbers) {
       const { x, y } = getCanvasCoordinates(e);
       const data = elevationDataRef.current;
       const py = Math.floor(y);
       const px = Math.floor(x);
       if (py >= 0 && py < data.length && px >= 0 && px < data[0].length) {
         setCursorElevation(Math.round(data[py][px]));
+        setCursorScreenPos({ x: e.clientX, y: e.clientY });
       }
     }
 
@@ -2118,17 +2120,27 @@ export default function TopographicMapCreator() {
           )}
         </div>
 
-        {/* Bottom Right - Zoom & Elevation */}
+        {/* Bottom Right - Zoom */}
         <div className="fixed bottom-4 right-4 z-50 text-center">
           <div className="bg-slate-900/60 backdrop-blur px-4 py-2 rounded border border-slate-600 text-slate-300 text-sm font-medium mb-2">
             {(zoom * 100).toFixed(0)}%
           </div>
-          {showElevationNumbers && cursorElevation !== null && (
-            <div className="bg-cyan-600/60 backdrop-blur px-4 py-2 rounded border border-cyan-500 text-white font-mono text-sm">
+        </div>
+
+        {/* Elevation Display - Following Cursor */}
+        {showElevationNumbers && cursorElevation !== null && (
+          <div
+            className="fixed z-50 pointer-events-none"
+            style={{
+              left: `${cursorScreenPos.x + 20}px`,
+              top: `${cursorScreenPos.y + 20}px`
+            }}
+          >
+            <div className="bg-cyan-600/80 backdrop-blur px-3 py-1.5 rounded border border-cyan-400 text-white font-mono text-sm shadow-lg">
               {cursorElevation}m
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Bottom Center - Help */}
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 text-center text-slate-400 text-sm">
