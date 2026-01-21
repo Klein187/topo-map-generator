@@ -662,6 +662,7 @@ export default function TopographicMapCreator() {
   const drawModeRef = useRef(DrawMode.RAISE);
   const oceanDepthRef = useRef(-100);
   const panStartRef = useRef({ x: 0, y: 0 });
+  const drawingBiomeRef = useRef(null);
 
   // State
   const [brushSize, setBrushSize] = useState(BRUSH_CONSTANTS.DEFAULT_SIZE);
@@ -827,6 +828,10 @@ export default function TopographicMapCreator() {
   }, [oceanDepth]);
 
   useEffect(() => {
+    drawingBiomeRef.current = drawingBiome;
+  }, [drawingBiome]);
+
+  useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
@@ -883,7 +888,9 @@ export default function TopographicMapCreator() {
 
   const updateElevationData = useCallback((centerX, centerY) => {
     const data = elevationDataRef.current;
+    const blendMap = biomeBlendMapRef.current;
     const radius = brushSize / 2;
+    const targetBiome = drawingBiomeRef.current;
 
     if (brushShape === 'circle') {
       for (let dy = -radius; dy <= radius; dy++) {
@@ -914,6 +921,43 @@ export default function TopographicMapCreator() {
               } else if (drawModeRef.current === DrawMode.PAINT_OCEAN) {
                 const targetDepth = oceanDepthRef.current;
                 data[py][px] = currentElev + (targetDepth - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
+              }
+
+              // Update biome blend map when painting with a specific biome
+              if (targetBiome && blendMap && blendMap[py]?.[px]) {
+                const current = blendMap[py][px];
+                const blendStrength = falloff * 0.3; // Softer blending for biomes
+
+                // Determine current dominant biome
+                const currentBiome1 = current.biome1;
+                const currentBiome2 = current.biome2;
+                const currentBlend = current.blend;
+
+                // Blend toward the target biome
+                if (currentBiome1 === targetBiome) {
+                  // Target is already biome1, reduce blend toward biome2
+                  blendMap[py][px] = {
+                    biome1: currentBiome1,
+                    biome2: currentBiome2,
+                    blend: Math.max(0, currentBlend - blendStrength)
+                  };
+                } else if (currentBiome2 === targetBiome) {
+                  // Target is biome2, increase blend toward it
+                  blendMap[py][px] = {
+                    biome1: currentBiome1,
+                    biome2: currentBiome2,
+                    blend: Math.min(1, currentBlend + blendStrength)
+                  };
+                } else {
+                  // Neither current biome is the target, transition to target
+                  // Keep current dominant biome as biome1, target as biome2
+                  const dominantBiome = currentBlend < 0.5 ? currentBiome1 : currentBiome2;
+                  blendMap[py][px] = {
+                    biome1: dominantBiome,
+                    biome2: targetBiome,
+                    blend: Math.min(1, blendStrength * 2)
+                  };
+                }
               }
             }
           }
@@ -949,6 +993,43 @@ export default function TopographicMapCreator() {
               const targetDepth = oceanDepthRef.current;
               data[py][px] = currentElev + (targetDepth - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
             }
+
+            // Update biome blend map when painting with a specific biome
+            if (targetBiome && blendMap && blendMap[py]?.[px]) {
+              const current = blendMap[py][px];
+              const blendStrength = falloff * 0.3; // Softer blending for biomes
+
+              // Determine current dominant biome
+              const currentBiome1 = current.biome1;
+              const currentBiome2 = current.biome2;
+              const currentBlend = current.blend;
+
+              // Blend toward the target biome
+              if (currentBiome1 === targetBiome) {
+                // Target is already biome1, reduce blend toward biome2
+                blendMap[py][px] = {
+                  biome1: currentBiome1,
+                  biome2: currentBiome2,
+                  blend: Math.max(0, currentBlend - blendStrength)
+                };
+              } else if (currentBiome2 === targetBiome) {
+                // Target is biome2, increase blend toward it
+                blendMap[py][px] = {
+                  biome1: currentBiome1,
+                  biome2: currentBiome2,
+                  blend: Math.min(1, currentBlend + blendStrength)
+                };
+              } else {
+                // Neither current biome is the target, transition to target
+                // Keep current dominant biome as biome1, target as biome2
+                const dominantBiome = currentBlend < 0.5 ? currentBiome1 : currentBiome2;
+                blendMap[py][px] = {
+                  biome1: dominantBiome,
+                  biome2: targetBiome,
+                  blend: Math.min(1, blendStrength * 2)
+                };
+              }
+            }
           }
         }
       }
@@ -969,10 +1050,8 @@ export default function TopographicMapCreator() {
         if (py >= 0 && py < data.length && px >= 0 && px < data[0].length) {
           const elev = data[py][px];
           let color;
-          // If a specific drawing biome is selected, use it
-          if (drawingBiome) {
-            color = getElevationColor(elev, drawingBiome);
-          } else if (blendMap && blendMap[py]?.[px]) {
+          // Always use blend map if available for smooth transitions
+          if (blendMap && blendMap[py]?.[px]) {
             color = getBlendedElevationColor(elev, blendMap[py][px]);
           } else {
             color = getElevationColor(elev, selectedBiomes[0]);
@@ -982,7 +1061,7 @@ export default function TopographicMapCreator() {
         }
       }
     }
-  }, [brushSize, selectedBiomes, drawingBiome]);
+  }, [brushSize, selectedBiomes]);
 
   const drawContourLines = useCallback(() => {
     const contourCanvas = contourRef.current;
