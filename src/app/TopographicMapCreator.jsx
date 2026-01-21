@@ -2357,8 +2357,18 @@ export default function TopographicMapCreator() {
 
         {/* Random Generation Options Modal */}
         {showRandomModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 shadow-2xl max-w-xs w-full mx-4">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseMove={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+          >
+            <div
+              className="bg-slate-800 border border-slate-600 rounded-xl p-6 shadow-2xl max-w-xs w-full mx-4"
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseMove={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
+            >
               <h2 className="text-xl font-bold text-slate-100 mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Generate Terrain
               </h2>
