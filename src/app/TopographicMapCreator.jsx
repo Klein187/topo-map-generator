@@ -42,7 +42,7 @@ const ELEVATION_CONFIG = {
   CONTOUR_STEP: 3,
   COASTLINE_LEVEL: 0,
   MAX_ELEVATION: 1000,
-  MIN_ELEVATION: -300,
+  MIN_ELEVATION: -600,
 };
 
 const BIOME_TYPES = {
@@ -55,12 +55,19 @@ const BIOME_TYPES = {
 
 const BIOME_COLORS = {
   [BIOME_TYPES.TEMPERATE]: [
-    [-200, '#0c1e47'],
-    [-150, '#1e3a8a'],
-    [-100, '#1e40af'],
-    [-50, '#3b82f6'],
-    [-25, '#60a5fa'],
-    [0, '#93c5fd'],
+    [-600, '#020617'],  // Abyssal trench - almost black
+    [-500, '#0a0f29'],  // Deep trench - very dark navy
+    [-400, '#0c1435'],  // Deep trench - dark navy
+    [-350, '#0c1940'],  // Very deep ocean
+    [-300, '#0c1e47'],  // Very deep ocean
+    [-250, '#0f2557'],  // Deep ocean
+    [-200, '#1a2f6c'],  // Deep ocean
+    [-150, '#1e3a8a'],  // Ocean depth
+    [-100, '#1e40af'],  // Ocean depth
+    [-75, '#2563eb'],   // Mid ocean
+    [-50, '#3b82f6'],   // Ocean
+    [-25, '#60a5fa'],   // Shallow water
+    [0, '#93c5fd'],     // Coastline
     [25, '#bbf7d0'],
     [50, '#86efac'],
     [100, '#4ade80'],
@@ -81,12 +88,19 @@ const BIOME_COLORS = {
     [Infinity, '#f8fafc']
   ],
   [BIOME_TYPES.DESERT]: [
-    [-200, '#0c1e47'],
-    [-150, '#1e3a8a'],
-    [-100, '#1e40af'],
-    [-50, '#3b82f6'],
-    [-25, '#60a5fa'],
-    [0, '#93c5fd'],
+    [-600, '#020617'],  // Abyssal trench
+    [-500, '#0a0f29'],  // Deep trench
+    [-400, '#0c1435'],  // Deep trench
+    [-350, '#0c1940'],  // Very deep ocean
+    [-300, '#0c1e47'],  // Very deep ocean
+    [-250, '#0f2557'],  // Deep ocean
+    [-200, '#1a2f6c'],  // Deep ocean
+    [-150, '#1e3a8a'],  // Ocean depth
+    [-100, '#1e40af'],  // Ocean depth
+    [-75, '#2563eb'],   // Mid ocean
+    [-50, '#3b82f6'],   // Ocean
+    [-25, '#60a5fa'],   // Shallow water
+    [0, '#93c5fd'],     // Coastline
     [25, '#fef3c7'],
     [50, '#fde68a'],
     [100, '#fcd34d'],
@@ -107,12 +121,19 @@ const BIOME_COLORS = {
     [Infinity, '#f5f5f4']
   ],
   [BIOME_TYPES.TROPICAL]: [
-    [-200, '#064e3b'],
-    [-150, '#065f46'],
-    [-100, '#047857'],
-    [-50, '#0891b2'],
-    [-25, '#22d3ee'],
-    [0, '#67e8f9'],
+    [-600, '#021a14'],  // Abyssal trench - very dark teal
+    [-500, '#032518'],  // Deep trench - dark teal
+    [-400, '#03301f'],  // Deep trench
+    [-350, '#043d28'],  // Very deep ocean
+    [-300, '#064e3b'],  // Very deep ocean
+    [-250, '#065740'],  // Deep ocean
+    [-200, '#065f46'],  // Deep ocean
+    [-150, '#047857'],  // Ocean depth
+    [-100, '#059669'],  // Ocean depth
+    [-75, '#0d9488'],   // Mid ocean
+    [-50, '#0891b2'],   // Ocean
+    [-25, '#22d3ee'],   // Shallow water
+    [0, '#67e8f9'],     // Coastline
     [25, '#a7f3d0'],
     [50, '#6ee7b7'],
     [100, '#34d399'],
@@ -133,12 +154,19 @@ const BIOME_COLORS = {
     [Infinity, '#f8fafc']
   ],
   [BIOME_TYPES.ARCTIC]: [
-    [-200, '#0c4a6e'],
-    [-150, '#075985'],
-    [-100, '#0369a1'],
-    [-50, '#0284c7'],
-    [-25, '#0ea5e9'],
-    [0, '#7dd3fc'],
+    [-600, '#021625'],  // Abyssal trench - very dark icy blue
+    [-500, '#031e36'],  // Deep trench - dark icy blue
+    [-400, '#052947'],  // Deep trench
+    [-350, '#073858'],  // Very deep ocean
+    [-300, '#0c4a6e'],  // Very deep ocean
+    [-250, '#0e5380'],  // Deep ocean
+    [-200, '#075985'],  // Deep ocean
+    [-150, '#0369a1'],  // Ocean depth
+    [-100, '#0891b2'],  // Ocean depth
+    [-75, '#06b6d4'],   // Mid ocean
+    [-50, '#0284c7'],   // Ocean
+    [-25, '#0ea5e9'],   // Shallow water
+    [0, '#7dd3fc'],     // Coastline
     [25, '#e0f2fe'],
     [50, '#f0f9ff'],
     [100, '#e2e8f0'],
@@ -159,12 +187,19 @@ const BIOME_COLORS = {
     [Infinity, '#ffffff']
   ],
   [BIOME_TYPES.VOLCANIC]: [
-    [-200, '#1c1917'],
-    [-150, '#292524'],
-    [-100, '#44403c'],
-    [-50, '#57534e'],
-    [-25, '#78716c'],
-    [0, '#a8a29e'],
+    [-600, '#0a0908'],  // Abyssal trench - almost black
+    [-500, '#0f0e0c'],  // Deep trench - very dark gray
+    [-400, '#141210'],  // Deep trench
+    [-350, '#1a1815'],  // Very deep ocean
+    [-300, '#1c1917'],  // Very deep ocean
+    [-250, '#221f1c'],  // Deep ocean
+    [-200, '#292524'],  // Deep ocean
+    [-150, '#373330'],  // Ocean depth
+    [-100, '#44403c'],  // Ocean depth
+    [-75, '#4d4743'],   // Mid ocean
+    [-50, '#57534e'],   // Ocean
+    [-25, '#78716c'],   // Shallow water
+    [0, '#a8a29e'],     // Coastline
     [25, '#57534e'],
     [50, '#44403c'],
     [100, '#292524'],
@@ -576,14 +611,17 @@ const generateContinentNoise = (width, height, seedValue, landPercent = 40, numC
         }
       }
 
-      // Add some ocean floor variation
+      // Add some ocean floor variation with deeper trenches
       if (elevation < 0) {
         const oceanNoise = fbmNoise(x, y, seedValue + 7777, 3);
-        elevation = Math.min(elevation, -50 - oceanNoise * 100);
+        const deepOceanNoise = fbmNoise(x, y, seedValue + 9999, 2);
+        // Create varied ocean depths from -50 down to -550
+        const oceanDepth = -50 - oceanNoise * 250 - deepOceanNoise * 250;
+        elevation = Math.min(elevation, oceanDepth);
       }
 
-      // Clamp elevation
-      data[y][x] = Math.max(-200, Math.min(800, elevation));
+      // Clamp elevation to new deeper minimum
+      data[y][x] = Math.max(-600, Math.min(800, elevation));
     }
   }
 
@@ -2380,8 +2418,8 @@ export default function TopographicMapCreator() {
                 </label>
                 <input
                   type="range"
-                  min="10"
-                  max="90"
+                  min="5"
+                  max="95"
                   value={landPercentage}
                   onChange={(e) => setLandPercentage(Number(e.target.value))}
                   className="w-full h-2 bg-slate-600 rounded cursor-pointer accent-emerald-500"
