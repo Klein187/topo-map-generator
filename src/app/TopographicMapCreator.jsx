@@ -226,6 +226,7 @@ const DrawMode = {
   LOWER: 'lower',
   FLATTEN: 'flatten',
   PAINT_OCEAN: 'paint_ocean',
+  PAINT_LAND: 'paint_land',
 };
 
 // ============================================================================
@@ -661,6 +662,7 @@ export default function TopographicMapCreator() {
   const flattenElevationRef = useRef(null);
   const drawModeRef = useRef(DrawMode.RAISE);
   const oceanDepthRef = useRef(-100);
+  const landElevationRef = useRef(100);
   const panStartRef = useRef({ x: 0, y: 0 });
   const drawingBiomeRef = useRef(null);
 
@@ -681,6 +683,7 @@ export default function TopographicMapCreator() {
   const [cursorScreenPos, setCursorScreenPos] = useState({ x: 0, y: 0 });
   const [drawMode, setDrawMode] = useState(DrawMode.RAISE);
   const [oceanDepth, setOceanDepth] = useState(-100);
+  const [landElevation, setLandElevation] = useState(100);
   const [previousBrushSize, setPreviousBrushSize] = useState(BRUSH_CONSTANTS.DEFAULT_SIZE);
   const [brushOutlinePos, setBrushOutlinePos] = useState({ x: 0, y: 0, visible: false });
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -828,6 +831,10 @@ export default function TopographicMapCreator() {
   }, [oceanDepth]);
 
   useEffect(() => {
+    landElevationRef.current = landElevation;
+  }, [landElevation]);
+
+  useEffect(() => {
     drawingBiomeRef.current = drawingBiome;
   }, [drawingBiome]);
 
@@ -921,6 +928,9 @@ export default function TopographicMapCreator() {
               } else if (drawModeRef.current === DrawMode.PAINT_OCEAN) {
                 const targetDepth = oceanDepthRef.current;
                 data[py][px] = currentElev + (targetDepth - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
+              } else if (drawModeRef.current === DrawMode.PAINT_LAND) {
+                const targetElev = landElevationRef.current;
+                data[py][px] = currentElev + (targetElev - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
               }
 
               // Update biome blend map when painting with a specific biome
@@ -992,6 +1002,9 @@ export default function TopographicMapCreator() {
             } else if (drawModeRef.current === DrawMode.PAINT_OCEAN) {
               const targetDepth = oceanDepthRef.current;
               data[py][px] = currentElev + (targetDepth - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
+            } else if (drawModeRef.current === DrawMode.PAINT_LAND) {
+              const targetElev = landElevationRef.current;
+              data[py][px] = currentElev + (targetElev - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
             }
 
             // Update biome blend map when painting with a specific biome
@@ -1168,7 +1181,13 @@ export default function TopographicMapCreator() {
     }
 
     if (e.button === 0) {
-      setDrawMode(e.shiftKey ? DrawMode.FLATTEN : DrawMode.RAISE);
+      if (e.ctrlKey || e.metaKey) {
+        setDrawMode(DrawMode.PAINT_LAND);
+      } else if (e.shiftKey) {
+        setDrawMode(DrawMode.FLATTEN);
+      } else {
+        setDrawMode(DrawMode.RAISE);
+      }
     } else if (e.button === 2) {
       e.preventDefault();
       setDrawMode(DrawMode.PAINT_OCEAN);
@@ -2222,6 +2241,35 @@ export default function TopographicMapCreator() {
             )}
           </div>
 
+          <div
+            className="relative w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => helpMode && setHoveredButton('landElevation')}
+            onMouseLeave={() => setHoveredButton(null)}
+            style={{ cursor: helpMode ? 'help' : 'default' }}
+          >
+            <label className="text-xs font-bold text-slate-300 block mb-2">Land Elevation: {landElevation}m</label>
+            <input
+              type="range"
+              min="0"
+              max="800"
+              step="25"
+              value={landElevation}
+              onChange={(e) => setLandElevation(Number(e.target.value))}
+              className="w-full h-2 bg-slate-600 rounded accent-green-500"
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+            />
+            <div className="flex justify-between text-xs text-slate-500 mt-1">
+              <span>Low</span>
+              <span>High</span>
+            </div>
+            {helpMode && hoveredButton === 'landElevation' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Land Elevation</div>
+                <div className="text-slate-400 text-xs">Ctrl+Left-click to paint land elevations. Drag the slider to select elevation level from sea level (0m) to mountain peaks (800m).</div>
+              </div>
+            )}
+          </div>
+
           {/* Biome Selection for Drawing */}
           {selectedBiomes.length > 1 && (
             <div
@@ -2303,12 +2351,12 @@ export default function TopographicMapCreator() {
 
         {/* Bottom Center - Help */}
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 text-center text-slate-400 text-sm">
-          {isAddingLabel ? '📍 Click to label' : isPanMode ? '🖱️ Drag to pan' : '🗺️ Left: raise • Right: lower • Shift+Click: flatten'}
+          {isAddingLabel ? '📍 Click to label' : isPanMode ? '🖱️ Drag to pan' : '🗺️ Left: raise • Right: ocean • Shift: flatten • Ctrl: land'}
         </div>
 
         {/* Version Number */}
         <div className="fixed bottom-1 right-2 z-40 text-slate-600 text-xs font-mono">
-          v1.1.0
+          v1.2.0
         </div>
 
         {/* Map Size Selection Modal */}
@@ -2417,16 +2465,16 @@ export default function TopographicMapCreator() {
               <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-400">Patch Notes</span>
-                  <span className="text-xs text-emerald-400 font-mono">v1.1.0</span>
+                  <span className="text-xs text-emerald-400 font-mono">v1.2.0</span>
                 </div>
                 <ul className="text-xs text-slate-500 space-y-1">
-                  <li>• Added help mode (?) with hover tooltips for all controls</li>
-                  <li>• New Random options: land coverage %, continent count</li>
-                  <li>• Improved continent generation with natural coastlines</li>
-                  <li>• Better biome blending with larger, smoother regions</li>
+                  <li>• Added Land Elevation slider (Ctrl+Click to paint heights)</li>
+                  <li>• Natural biome blending when painting between biomes</li>
+                  <li>• Middle mouse button pan instructions in controls</li>
+                  <li>• Help mode (?) with hover tooltips for all controls</li>
+                  <li>• Random terrain: land coverage %, continent count</li>
+                  <li>• Improved biome blending with smoother transitions</li>
                   <li>• Draw Biome selector for multi-biome maps</li>
-                  <li>• Controls tutorial popup on first load</li>
-                  <li>• Compact elevation legend in bottom-left</li>
                 </ul>
               </div>
             </div>
@@ -2440,7 +2488,7 @@ export default function TopographicMapCreator() {
               <h2 className="text-2xl font-bold text-slate-100 mb-2 text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Controls
               </h2>
-              <p className="text-slate-400 text-sm mb-6 text-center">Here's how to create your map</p>
+              <p className="text-slate-400 text-sm mb-6 text-center">Here&apos;s how to create your map</p>
 
               <div className="space-y-4 mb-6">
                 <div className="flex items-start gap-3">
@@ -2454,12 +2502,22 @@ export default function TopographicMapCreator() {
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center flex-shrink-0">
                     <ChevronDown size={18} className="text-white" />
                   </div>
                   <div>
                     <div className="text-slate-100 font-medium text-sm">Right Click</div>
-                    <div className="text-slate-400 text-xs">Lower terrain elevation</div>
+                    <div className="text-slate-400 text-xs">Paint ocean depths (use slider to select depth)</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs font-bold">⌃</span>
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">Ctrl + Click</div>
+                    <div className="text-slate-400 text-xs">Paint land elevations (use slider to select height)</div>
                   </div>
                 </div>
 
@@ -2508,7 +2566,7 @@ export default function TopographicMapCreator() {
                 onClick={() => setShowControlsModal(false)}
                 className="w-full px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-emerald-500/25"
               >
-                Got it, let's create!
+                Got it, let&apos;s create!
               </button>
             </div>
           </div>
