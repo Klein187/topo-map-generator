@@ -225,6 +225,7 @@ const DrawMode = {
   RAISE: 'raise',
   LOWER: 'lower',
   FLATTEN: 'flatten',
+  PAINT_OCEAN: 'paint_ocean',
 };
 
 // ============================================================================
@@ -659,6 +660,7 @@ export default function TopographicMapCreator() {
   const isDrawingRef = useRef(false);
   const flattenElevationRef = useRef(null);
   const drawModeRef = useRef(DrawMode.RAISE);
+  const oceanDepthRef = useRef(-100);
   const panStartRef = useRef({ x: 0, y: 0 });
 
   // State
@@ -677,6 +679,7 @@ export default function TopographicMapCreator() {
   const [cursorElevation, setCursorElevation] = useState(null);
   const [cursorScreenPos, setCursorScreenPos] = useState({ x: 0, y: 0 });
   const [drawMode, setDrawMode] = useState(DrawMode.RAISE);
+  const [oceanDepth, setOceanDepth] = useState(-100);
   const [previousBrushSize, setPreviousBrushSize] = useState(BRUSH_CONSTANTS.DEFAULT_SIZE);
   const [brushOutlinePos, setBrushOutlinePos] = useState({ x: 0, y: 0, visible: false });
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -820,6 +823,10 @@ export default function TopographicMapCreator() {
   }, [drawMode]);
 
   useEffect(() => {
+    oceanDepthRef.current = oceanDepth;
+  }, [oceanDepth]);
+
+  useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
@@ -904,6 +911,9 @@ export default function TopographicMapCreator() {
                   const targetElev = flattenElevationRef.current;
                   data[py][px] = currentElev + (targetElev - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
                 }
+              } else if (drawModeRef.current === DrawMode.PAINT_OCEAN) {
+                const targetDepth = oceanDepthRef.current;
+                data[py][px] = currentElev + (targetDepth - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
               }
             }
           }
@@ -935,6 +945,9 @@ export default function TopographicMapCreator() {
                 const targetElev = flattenElevationRef.current;
                 data[py][px] = currentElev + (targetElev - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
               }
+            } else if (drawModeRef.current === DrawMode.PAINT_OCEAN) {
+              const targetDepth = oceanDepthRef.current;
+              data[py][px] = currentElev + (targetDepth - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
             }
           }
         }
@@ -1079,7 +1092,7 @@ export default function TopographicMapCreator() {
       setDrawMode(e.shiftKey ? DrawMode.FLATTEN : DrawMode.RAISE);
     } else if (e.button === 2) {
       e.preventDefault();
-      setDrawMode(DrawMode.LOWER);
+      setDrawMode(DrawMode.PAINT_OCEAN);
     }
 
     isDrawingRef.current = true;
@@ -2097,6 +2110,35 @@ export default function TopographicMapCreator() {
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Brush Shape</div>
                 <div className="text-slate-400 text-xs">Choose between circular or square brush for painting terrain.</div>
+              </div>
+            )}
+          </div>
+
+          <div
+            className="relative w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => helpMode && setHoveredButton('oceanDepth')}
+            onMouseLeave={() => setHoveredButton(null)}
+            style={{ cursor: helpMode ? 'help' : 'default' }}
+          >
+            <label className="text-xs font-bold text-slate-300 block mb-2">Ocean Depth: {oceanDepth}m</label>
+            <input
+              type="range"
+              min="-600"
+              max="0"
+              step="25"
+              value={oceanDepth}
+              onChange={(e) => setOceanDepth(Number(e.target.value))}
+              className="w-full h-2 bg-slate-600 rounded accent-blue-500"
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+            />
+            <div className="flex justify-between text-xs text-slate-500 mt-1">
+              <span>Deep</span>
+              <span>Shallow</span>
+            </div>
+            {helpMode && hoveredButton === 'oceanDepth' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Ocean Depth</div>
+                <div className="text-slate-400 text-xs">Right-click to paint ocean depths. Drag the slider to select depth level from shallow (-0m) to abyssal trenches (-600m).</div>
               </div>
             )}
           </div>
