@@ -2400,7 +2400,7 @@ export default function TopographicMapCreator() {
                   </div>
                   <div>
                     <div className="text-slate-100 font-medium text-sm">Pan Mode</div>
-                    <div className="text-slate-400 text-xs">Click the hand icon to drag and navigate the map</div>
+                    <div className="text-slate-400 text-xs">Click the hand icon to drag and navigate the map, or hold middle mouse button</div>
                   </div>
                 </div>
 
