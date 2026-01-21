@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, RotateCcw, ChevronUp, ChevronDown, Map } from 'lucide-react';
+import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, RotateCcw, ChevronUp, ChevronDown, Map, HelpCircle } from 'lucide-react';
 
 // ============================================================================
 // CONSTANTS
@@ -211,11 +211,11 @@ const generateBiomeMap = (width, height, seedValue, biomes) => {
     // Single biome - return uniform map
     return Array(height).fill(null).map(() => Array(width).fill(biomes[0]));
   }
-  
+
   const biomeMap = [];
-  const scale = 0.0015; // Scale for biome regions
-  const octaves = 3;
-  const persistence = 0.5;
+  const scale = 0.0008; // Larger scale for bigger, more natural biome regions
+  const octaves = 4;
+  const persistence = 0.6;
   
   // Generate smooth noise for biome selection
   const getBiomeNoise = (x, y) => {
@@ -295,11 +295,11 @@ const generateBiomeBlendMap = (width, height, seedValue, biomes) => {
   if (biomes.length === 1) {
     return null; // No blending needed
   }
-  
+
   const blendMap = [];
-  const scale = 0.0015;
-  const octaves = 3;
-  const persistence = 0.5;
+  const scale = 0.0008; // Match biome map scale for consistency
+  const octaves = 4;
+  const persistence = 0.6;
   
   const getBiomeNoise = (x, y) => {
     let total = 0;
@@ -473,6 +473,139 @@ const generatePerlinNoise = (width, height, seedValue) => {
   return smoothed;
 };
 
+// Generate continent-style terrain with distinct landmasses
+const generateContinentNoise = (width, height, seedValue, landPercent = 40, numContinentsInput = 'random') => {
+  const data = [];
+  const numContinents = numContinentsInput === 'random'
+    ? 3 + Math.floor(seededRandom(seedValue * 999) * 4) // 3-6 continents
+    : Math.max(1, parseInt(numContinentsInput, 10) || 3);
+
+  // Adjust continent size based on number of continents and land percentage
+  const baseSizeMultiplier = Math.sqrt(landPercent / 40) * (4 / Math.sqrt(numContinents));
+
+  const continents = [];
+
+  // Generate continent centers - spread them out more evenly
+  for (let i = 0; i < numContinents; i++) {
+    // Use golden ratio for better distribution
+    const angle = i * 2.399963 + seededRandom(seedValue + i * 50) * 0.5;
+    const radius = 0.25 + seededRandom(seedValue + i * 150) * 0.2;
+    const cx = 0.5 + Math.cos(angle) * radius;
+    const cy = 0.5 + Math.sin(angle) * radius;
+
+    continents.push({
+      x: cx * width,
+      y: cy * height,
+      size: (0.12 + seededRandom(seedValue + i * 300) * 0.15) * baseSizeMultiplier,
+      elongation: 0.5 + seededRandom(seedValue + i * 350) * 1.0, // How stretched the continent is
+      angle: seededRandom(seedValue + i * 400) * Math.PI * 2, // Rotation angle
+      jaggedness: 0.02 + seededRandom(seedValue + i * 450) * 0.03
+    });
+  }
+
+  // Smooth noise function for coastline variation
+  const smoothNoise = (x, y, scale, seed) => {
+    const xi = Math.floor(x * scale);
+    const yi = Math.floor(y * scale);
+    const xf = (x * scale) - xi;
+    const yf = (y * scale) - yi;
+
+    const n00 = seededRandom(seed + xi * 374761393 + yi * 668265263);
+    const n10 = seededRandom(seed + (xi + 1) * 374761393 + yi * 668265263);
+    const n01 = seededRandom(seed + xi * 374761393 + (yi + 1) * 668265263);
+    const n11 = seededRandom(seed + (xi + 1) * 374761393 + (yi + 1) * 668265263);
+
+    const sx = xf * xf * (3 - 2 * xf);
+    const sy = yf * yf * (3 - 2 * yf);
+
+    return n00 * (1 - sx) * (1 - sy) + n10 * sx * (1 - sy) + n01 * (1 - sx) * sy + n11 * sx * sy;
+  };
+
+  // Multi-octave noise for natural coastlines
+  const fbmNoise = (x, y, seed, octaves = 4) => {
+    let value = 0;
+    let amplitude = 1;
+    let frequency = 1;
+    let maxValue = 0;
+
+    for (let o = 0; o < octaves; o++) {
+      value += smoothNoise(x, y, 0.005 * frequency, seed + o * 1000) * amplitude;
+      maxValue += amplitude;
+      amplitude *= 0.5;
+      frequency *= 2;
+    }
+
+    return value / maxValue;
+  };
+
+  for (let y = 0; y < height; y++) {
+    data[y] = [];
+    for (let x = 0; x < width; x++) {
+      let elevation = -100; // Start as ocean
+
+      // Check influence from each continent
+      for (let ci = 0; ci < continents.length; ci++) {
+        const cont = continents[ci];
+
+        // Calculate rotated distance for elongated continents
+        const dx = x - cont.x;
+        const dy = y - cont.y;
+        const rotatedX = dx * Math.cos(cont.angle) + dy * Math.sin(cont.angle);
+        const rotatedY = -dx * Math.sin(cont.angle) + dy * Math.cos(cont.angle);
+
+        // Apply elongation
+        const normalizedDist = Math.sqrt(
+          (rotatedX / (width * cont.size)) ** 2 +
+          (rotatedY / (height * cont.size * cont.elongation)) ** 2
+        );
+
+        // Add noise to create irregular coastlines
+        const coastNoise = fbmNoise(x, y, seedValue + ci * 5000) * cont.jaggedness * 10;
+        const adjustedDist = normalizedDist + coastNoise;
+
+        if (adjustedDist < 1) {
+          const falloff = 1 - adjustedDist;
+          const smoothFalloff = falloff * falloff * (3 - 2 * falloff);
+
+          // Add terrain height with variation
+          const terrainNoise = fbmNoise(x, y, seedValue + ci * 3000 + 999, 5);
+          const baseHeight = smoothFalloff * 300;
+          const heightVariation = terrainNoise * 200 * smoothFalloff;
+
+          elevation = Math.max(elevation, baseHeight + heightVariation - 50);
+        }
+      }
+
+      // Add some ocean floor variation
+      if (elevation < 0) {
+        const oceanNoise = fbmNoise(x, y, seedValue + 7777, 3);
+        elevation = Math.min(elevation, -50 - oceanNoise * 100);
+      }
+
+      // Clamp elevation
+      data[y][x] = Math.max(-200, Math.min(800, elevation));
+    }
+  }
+
+  // Smoothing pass for nicer coastlines
+  const smoothed = data.map(row => [...row]);
+  for (let pass = 0; pass < 3; pass++) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const avg = (
+          smoothed[y - 1][x] + smoothed[y + 1][x] +
+          smoothed[y][x - 1] + smoothed[y][x + 1] +
+          smoothed[y - 1][x - 1] + smoothed[y - 1][x + 1] +
+          smoothed[y + 1][x - 1] + smoothed[y + 1][x + 1]
+        ) / 8;
+        smoothed[y][x] = smoothed[y][x] * 0.6 + avg * 0.4;
+      }
+    }
+  }
+
+  return smoothed;
+};
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -530,7 +663,14 @@ export default function TopographicMapCreator() {
   const [generationProgress, setGenerationProgress] = useState(false);
   const [drawingContours, setDrawingContours] = useState(false);
   const [showSizeModal, setShowSizeModal] = useState(true);
+  const [showControlsModal, setShowControlsModal] = useState(false);
+  const [showRandomModal, setShowRandomModal] = useState(false);
+  const [landPercentage, setLandPercentage] = useState(40);
+  const [continentCount, setContinentCount] = useState('random');
+  const [helpMode, setHelpMode] = useState(false);
+  const [hoveredButton, setHoveredButton] = useState(null);
   const [mapSize, setMapSize] = useState(null);
+  const [drawingBiome, setDrawingBiome] = useState(null); // null means use blend, or specific biome
   const [canvasWidth, setCanvasWidth] = useState(CANVAS_WIDTH);
   const [canvasHeight, setCanvasHeight] = useState(CANVAS_HEIGHT);
   const [selectedBiomes, setSelectedBiomes] = useState([BIOME_TYPES.TEMPERATE]);
@@ -561,6 +701,7 @@ export default function TopographicMapCreator() {
     setCanvasHeight(selectedSize.height);
     setMapSize(size);
     setShowSizeModal(false);
+    setShowControlsModal(true);
     
     // Initialize canvas after size selection
     setTimeout(() => {
@@ -776,7 +917,10 @@ export default function TopographicMapCreator() {
         if (py >= 0 && py < data.length && px >= 0 && px < data[0].length) {
           const elev = data[py][px];
           let color;
-          if (blendMap && blendMap[py]?.[px]) {
+          // If a specific drawing biome is selected, use it
+          if (drawingBiome) {
+            color = getElevationColor(elev, drawingBiome);
+          } else if (blendMap && blendMap[py]?.[px]) {
             color = getBlendedElevationColor(elev, blendMap[py][px]);
           } else {
             color = getElevationColor(elev, selectedBiomes[0]);
@@ -786,7 +930,7 @@ export default function TopographicMapCreator() {
         }
       }
     }
-  }, [brushSize, selectedBiomes]);
+  }, [brushSize, selectedBiomes, drawingBiome]);
 
   const drawContourLines = useCallback(() => {
     const contourCanvas = contourRef.current;
@@ -799,8 +943,8 @@ export default function TopographicMapCreator() {
     const height = data.length;
     const width = data[0].length;
     
-    // Step size for performance
-    const CONTOUR_STEP = 6;
+    // Step size for performance (smaller = smoother but slower)
+    const CONTOUR_STEP = 4;
     const CONTOUR_INTERVAL = 30; // More contour lines
     const MIN_ELEVATION = -300;
     const MAX_ELEVATION = 1000;
@@ -855,9 +999,9 @@ export default function TopographicMapCreator() {
     };
 
     // Draw in order: minor (back), major (middle), coastline (front)
-    drawContourSet(minorLevels, 'rgba(60, 60, 60, 0.7)', 1);
-    drawContourSet(majorLevels, 'rgba(40, 40, 40, 0.85)', 2);
-    drawContourSet([coastlineLevel], 'rgba(0, 0, 0, 1)', 2.5);
+    drawContourSet(minorLevels, 'rgba(30, 30, 30, 0.9)', 1.5);
+    drawContourSet(majorLevels, 'rgba(20, 20, 20, 1)', 2.5);
+    drawContourSet([coastlineLevel], 'rgba(0, 0, 0, 1)', 3.5);
 
   }, []);
 
@@ -1130,9 +1274,9 @@ export default function TopographicMapCreator() {
     setShowElevationNumbers(!showElevationNumbers);
   }, [showElevationNumbers, brushSize, previousBrushSize]);
 
-  const generateRandomMap = useCallback((useSeed = null) => {
+  const generateRandomMap = useCallback((useSeed = null, landPercent = 50) => {
     setGeneratingTerrain(true);
-    
+
     setTimeout(() => {
       const newSeed = useSeed !== null ? useSeed : Math.random() * 100000;
       setSeed(newSeed.toString());
@@ -1141,7 +1285,15 @@ export default function TopographicMapCreator() {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       const newElevationData = generatePerlinNoise(canvasWidth, canvasHeight, newSeed);
-      
+
+      // Adjust sea level based on land percentage
+      const seaLevelAdjust = (50 - landPercent) * 4;
+      for (let y = 0; y < canvasHeight; y++) {
+        for (let x = 0; x < canvasWidth; x++) {
+          newElevationData[y][x] -= seaLevelAdjust;
+        }
+      }
+
       // Generate biome maps with blending
       const newBiomeMap = generateBiomeMap(canvasWidth, canvasHeight, newSeed, selectedBiomes);
       const newBlendMap = generateBiomeBlendMap(canvasWidth, canvasHeight, newSeed, selectedBiomes);
@@ -1155,7 +1307,7 @@ export default function TopographicMapCreator() {
         for (let x = 0; x < canvasWidth; x++) {
           const elev = newElevationData[y][x];
           let color;
-          
+
           if (newBlendMap && newBlendMap[y]?.[x]) {
             color = getBlendedElevationColor(elev, newBlendMap[y][x]);
           } else {
@@ -1329,7 +1481,7 @@ export default function TopographicMapCreator() {
   // ============================================================================
 
   return (
-    <div className="fixed inset-0 w-full h-full overflow-hidden bg-black">
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-black" style={{ cursor: helpMode ? 'help' : 'default' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Merriweather:wght@300;400&display=swap');
         body { font-family: 'Merriweather', serif; }
@@ -1340,7 +1492,7 @@ export default function TopographicMapCreator() {
         ref={containerRef}
         className="absolute inset-0 w-full h-full"
         style={{
-          cursor: isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair'),
+          cursor: helpMode ? 'help' : (isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair')),
           touchAction: 'none',
           overflow: 'hidden'
         }}
@@ -1572,31 +1724,115 @@ export default function TopographicMapCreator() {
           <h1 className="text-3xl font-bold text-slate-100 mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>Topographic Map</h1>
           <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 backdrop-blur-md rounded-lg p-4 border border-slate-600 shadow-lg">
             <div className="flex gap-2 mb-3">
-              <button onClick={() => generateRandomMap()} className="flex-1 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded font-medium text-sm flex items-center justify-center gap-1">
-                <Shuffle size={14} /> Random
-              </button>
-              <button onClick={clearCanvas} className="flex-1 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 rounded font-medium text-sm flex items-center justify-center gap-1">
-                <Trash2 size={14} /> Clear
-              </button>
-              <button onClick={() => setShowDownloadModal(true)} className="flex-1 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 rounded font-medium text-sm flex items-center justify-center gap-1">
-                <Download size={14} /> Download
-              </button>
+              <div
+                className="relative flex-1"
+                onMouseEnter={() => helpMode && setHoveredButton('random')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onClick={() => setShowRandomModal(true)}
+                  className="w-full px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded font-medium text-sm flex items-center justify-center gap-1"
+                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
+                >
+                  <Shuffle size={14} /> Random
+                </button>
+                {helpMode && hoveredButton === 'random' && (
+                  <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Random Generate</div>
+                    <div className="text-slate-400 text-xs">Generate terrain with land/ocean settings.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative flex-1"
+                onMouseEnter={() => helpMode && setHoveredButton('clear')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onClick={clearCanvas}
+                  className="w-full px-3 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 rounded font-medium text-sm flex items-center justify-center gap-1"
+                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
+                >
+                  <Trash2 size={14} /> Clear
+                </button>
+                {helpMode && hoveredButton === 'clear' && (
+                  <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Clear Canvas</div>
+                    <div className="text-slate-400 text-xs">Erase all terrain and start with a blank ocean map.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative flex-1"
+                onMouseEnter={() => helpMode && setHoveredButton('download')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onClick={() => setShowDownloadModal(true)}
+                  className="w-full px-3 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 rounded font-medium text-sm flex items-center justify-center gap-1"
+                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
+                >
+                  <Download size={14} /> Download
+                </button>
+                {helpMode && hoveredButton === 'download' && (
+                  <div className="absolute right-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Download Map</div>
+                    <div className="text-slate-400 text-xs">Save your map as a PNG image file.</div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="mb-3">
-              <button 
+            <div
+              className="relative mb-3"
+              onMouseEnter={() => helpMode && setHoveredButton('newMap')}
+              onMouseLeave={() => setHoveredButton(null)}
+            >
+              <button
                 onClick={() => {
                   clearCanvas();
                   setMapSize(null);
                   setShowSizeModal(true);
-                }} 
+                }}
                 className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium text-sm flex items-center justify-center gap-1"
+                style={{ cursor: helpMode ? 'help' : 'pointer' }}
               >
                 <Map size={14} /> New Map
               </button>
+              {helpMode && hoveredButton === 'newMap' && (
+                <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
+                  <div className="text-slate-100 font-medium text-sm">New Map</div>
+                  <div className="text-slate-400 text-xs">Start fresh with new biome and size selection.</div>
+                </div>
+              )}
             </div>
-            <div className="flex gap-2">
-              <input type="number" value={inputSeed} onChange={(e) => setInputSeed(e.target.value)} placeholder="Seed..." className="flex-1 px-2 py-1 bg-slate-700 text-slate-100 border border-slate-600 rounded text-xs" />
-              <button onClick={handleGenerateFromSeed} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium">Use</button>
+            <div
+              className="relative"
+              onMouseEnter={() => helpMode && setHoveredButton('seed')}
+              onMouseLeave={() => setHoveredButton(null)}
+            >
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={inputSeed}
+                  onChange={(e) => setInputSeed(e.target.value)}
+                  placeholder="Seed..."
+                  className="flex-1 px-2 py-1 bg-slate-700 text-slate-100 border border-slate-600 rounded text-xs"
+                  style={{ cursor: helpMode ? 'help' : 'text' }}
+                />
+                <button
+                  onClick={handleGenerateFromSeed}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium"
+                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
+                >
+                  Use
+                </button>
+              </div>
+              {helpMode && hoveredButton === 'seed' && (
+                <div className="absolute left-0 top-10 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
+                  <div className="text-slate-100 font-medium text-sm">Seed Input</div>
+                  <div className="text-slate-400 text-xs">Enter a number to recreate a specific terrain. Same seed = same map.</div>
+                </div>
+              )}
             </div>
             {seed && <p className="text-xs text-slate-400 mt-2">Seed: <span className="text-indigo-300">{seed}</span></p>}
           </div>
@@ -1604,83 +1840,282 @@ export default function TopographicMapCreator() {
 
         {/* Top Right - Controls */}
         <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={() => { setIsPanMode(!isPanMode); setIsAddingLabel(false); }} className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${isPanMode ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`} title="Pan">
-            <Move size={18} />
-          </button>
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={() => handleZoom(0.2)} className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg">
-            <ZoomIn size={18} />
-          </button>
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={() => handleZoom(-0.2)} className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg">
-            <ZoomOut size={18} />
-          </button>
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg">
-            <RotateCcw size={18} />
-          </button>
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={() => {
-            if (!showContours) {
-              setDrawingContours(true);
-              setTimeout(() => {
-                drawContourLines();
-                setShowContours(true);
-                setDrawingContours(false);
-              }, 100);
-            } else {
-              setShowContours(false);
-            }
-          }} className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showContours ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}>
-            <Layers size={18} />
-          </button>
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={handleToggleElevationNumbers} className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showElevationNumbers ? 'bg-cyan-600 border-cyan-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}>
-            <Hash size={18} />
-          </button>
-          <button 
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => setIsAddingLabel(!isAddingLabel)}
-            className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-all ${
-              isAddingLabel
-                ? 'bg-violet-600 border-violet-500 text-white'
-                : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
-            }`}
-            title={isAddingLabel ? 'Cancel Labeling' : 'Add Label'}
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('pan')}
+            onMouseLeave={() => setHoveredButton(null)}
           >
-            <MapPin size={18} />
-          </button>
-          
-          <div className="w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600">
-            <label className="text-xs font-bold text-slate-300 block mb-2">Size: {brushSize}px</label>
-            <input type="range" min={BRUSH_CONSTANTS.MIN_SIZE} max={BRUSH_CONSTANTS.MAX_SIZE} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-full h-2 bg-slate-600 rounded cursor-pointer" />
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => { setIsPanMode(!isPanMode); setIsAddingLabel(false); }}
+              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${isPanMode ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+              title="Pan"
+            >
+              <Move size={18} />
+            </button>
+            {helpMode && hoveredButton === 'pan' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Pan Mode</div>
+                <div className="text-slate-400 text-xs">Click and drag to navigate around the map.</div>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('zoomIn')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => handleZoom(0.2)}
+              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+            >
+              <ZoomIn size={18} />
+            </button>
+            {helpMode && hoveredButton === 'zoomIn' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Zoom In</div>
+                <div className="text-slate-400 text-xs">Increase the zoom level to see more detail.</div>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('zoomOut')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => handleZoom(-0.2)}
+              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+            >
+              <ZoomOut size={18} />
+            </button>
+            {helpMode && hoveredButton === 'zoomOut' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Zoom Out</div>
+                <div className="text-slate-400 text-xs">Decrease the zoom level to see more of the map.</div>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('reset')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+            >
+              <RotateCcw size={18} />
+            </button>
+            {helpMode && hoveredButton === 'reset' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Reset View</div>
+                <div className="text-slate-400 text-xs">Reset zoom and pan to default position.</div>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('contours')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => {
+                if (!showContours) {
+                  setDrawingContours(true);
+                  setTimeout(() => {
+                    drawContourLines();
+                    setShowContours(true);
+                    setDrawingContours(false);
+                  }, 100);
+                } else {
+                  setShowContours(false);
+                }
+              }}
+              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showContours ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+            >
+              <Layers size={18} />
+            </button>
+            {helpMode && hoveredButton === 'contours' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Contour Lines</div>
+                <div className="text-slate-400 text-xs">Toggle topographic contour lines showing elevation changes.</div>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('elevation')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={handleToggleElevationNumbers}
+              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showElevationNumbers ? 'bg-cyan-600 border-cyan-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+            >
+              <Hash size={18} />
+            </button>
+            {helpMode && hoveredButton === 'elevation' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Elevation Display</div>
+                <div className="text-slate-400 text-xs">Show elevation in meters at your cursor position.</div>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('label')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setIsAddingLabel(!isAddingLabel)}
+              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-all ${
+                isAddingLabel
+                  ? 'bg-violet-600 border-violet-500 text-white'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+              }`}
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+              title={isAddingLabel ? 'Cancel Labeling' : 'Add Label'}
+            >
+              <MapPin size={18} />
+            </button>
+            {helpMode && hoveredButton === 'label' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Add Labels</div>
+                <div className="text-slate-400 text-xs">Click on the map to add place names and annotations.</div>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
+            onMouseEnter={() => helpMode && setHoveredButton('help')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setHelpMode(!helpMode)}
+              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-all ${
+                helpMode
+                  ? 'bg-amber-600 border-amber-500 text-white'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+              }`}
+              style={{ cursor: helpMode ? 'help' : 'pointer' }}
+              title="Help Mode"
+            >
+              <HelpCircle size={18} />
+            </button>
+            {helpMode && hoveredButton === 'help' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Help Mode</div>
+                <div className="text-slate-400 text-xs">Hover over buttons to see what they do. Click again to exit.</div>
+              </div>
+            )}
           </div>
 
-          <div className="w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600">
+          <div
+            className="relative w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => helpMode && setHoveredButton('brushSize')}
+            onMouseLeave={() => setHoveredButton(null)}
+            style={{ cursor: helpMode ? 'help' : 'default' }}
+          >
+            <label className="text-xs font-bold text-slate-300 block mb-2">Size: {brushSize}px</label>
+            <input type="range" min={BRUSH_CONSTANTS.MIN_SIZE} max={BRUSH_CONSTANTS.MAX_SIZE} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-full h-2 bg-slate-600 rounded" style={{ cursor: helpMode ? 'help' : 'pointer' }} />
+            {helpMode && hoveredButton === 'brushSize' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Brush Size</div>
+                <div className="text-slate-400 text-xs">Adjust how large your terrain brush is when painting.</div>
+              </div>
+            )}
+          </div>
+
+          <div
+            className="relative w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => helpMode && setHoveredButton('brushShape')}
+            onMouseLeave={() => setHoveredButton(null)}
+            style={{ cursor: helpMode ? 'help' : 'default' }}
+          >
             <label className="text-xs font-bold text-slate-300 block mb-2">Shape</label>
             <div className="flex gap-2">
               {['circle', 'square'].map((s) => (
-                <button key={s} onMouseDown={(e) => e.stopPropagation()} onClick={() => setBrushShape(s)} className={`flex-1 px-2 py-1 rounded text-lg ${brushShape === s ? 'bg-emerald-600 text-white' : 'bg-slate-600 text-slate-300'}`}>
+                <button key={s} onMouseDown={(e) => e.stopPropagation()} onClick={() => setBrushShape(s)} className={`flex-1 px-2 py-1 rounded text-lg ${brushShape === s ? 'bg-emerald-600 text-white' : 'bg-slate-600 text-slate-300'}`} style={{ cursor: helpMode ? 'help' : 'pointer' }}>
                   {s === 'circle' ? '●' : '■'}
                 </button>
               ))}
             </div>
+            {helpMode && hoveredButton === 'brushShape' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">Brush Shape</div>
+                <div className="text-slate-400 text-xs">Choose between circular or square brush for painting terrain.</div>
+              </div>
+            )}
           </div>
+
+          {/* Biome Selection for Drawing */}
+          {selectedBiomes.length > 1 && (
+            <div
+              className="relative w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
+              onMouseEnter={() => helpMode && setHoveredButton('drawBiome')}
+              onMouseLeave={() => setHoveredButton(null)}
+              style={{ cursor: helpMode ? 'help' : 'default' }}
+            >
+              <label className="text-xs font-bold text-slate-300 block mb-2">Draw Biome</label>
+              <select
+                value={drawingBiome || 'blend'}
+                onChange={(e) => setDrawingBiome(e.target.value === 'blend' ? null : e.target.value)}
+                className="w-full px-2 py-1 bg-slate-600 text-slate-100 border border-slate-500 rounded text-xs"
+                style={{ cursor: helpMode ? 'help' : 'pointer' }}
+              >
+                <option value="blend">Auto Blend</option>
+                {selectedBiomes.map((biome) => (
+                  <option key={biome} value={biome} className="capitalize">{biome}</option>
+                ))}
+              </select>
+              {helpMode && hoveredButton === 'drawBiome' && (
+                <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                  <div className="text-slate-100 font-medium text-sm">Drawing Biome</div>
+                  <div className="text-slate-400 text-xs">Choose which biome colors to use when painting terrain.</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bottom Left - Legend */}
-        <div className="fixed bottom-4 left-4 z-50 bg-slate-800/60 backdrop-blur rounded p-3 border border-slate-600">
-          <div className="text-xs text-slate-300 mb-2 font-medium capitalize">
-            {selectedBiomes.length === 1 
-              ? `${selectedBiomes[0]} Biome` 
-              : `${selectedBiomes.length} Biomes: ${selectedBiomes.join(', ')}`}
+        <div
+          className="fixed bottom-3 left-3 z-50 bg-slate-800/80 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50"
+          onMouseEnter={() => helpMode && setHoveredButton('legend')}
+          onMouseLeave={() => setHoveredButton(null)}
+          style={{ cursor: helpMode ? 'help' : 'default', width: 'fit-content' }}
+        >
+          <div className="flex flex-col gap-0.5">
+            {selectedBiomes.map((biome) => (
+              <div key={biome} className="flex items-center gap-1">
+                <span className="text-[10px] text-slate-400 capitalize" style={{ width: '48px' }}>{biome}</span>
+                <div className="flex rounded-sm overflow-hidden border border-slate-700/50" style={{ width: '80px', height: '10px' }}>
+                  {[-150, -50, 0, 50, 150, 300, 450, 600, 800].map((elev, idx) => (
+                    <div key={idx} style={{ flex: 1, backgroundColor: getElevationColor(elev, biome) }} />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="flex h-5 gap-0 rounded overflow-hidden border border-slate-700 w-48 mb-2">
-            {(() => {
-              const sampleElevations = [-150, -50, 0, 50, 150, 300, 450, 600, 800];
-              return sampleElevations.map((elev, idx) => (
-                <div key={idx} className="flex-1" style={{ backgroundColor: getElevationColor(elev, selectedBiomes[0]) }} />
-              ));
-            })()}
-          </div>
-          <div className="grid grid-cols-3 text-xs text-slate-400">
-            <div>Ocean</div><div className="text-center">Land</div><div className="text-right">Peak</div>
-          </div>
+          {helpMode && hoveredButton === 'legend' && (
+            <div className="absolute left-0 bottom-full mb-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl z-50 pointer-events-none" style={{ width: '180px' }}>
+              <div className="text-slate-100 font-medium text-sm">Elevation Legend</div>
+              <div className="text-slate-400 text-xs">Ocean (left) to peaks (right).</div>
+            </div>
+          )}
         </div>
 
         {/* Bottom Right - Zoom & Elevation */}
@@ -1698,6 +2133,11 @@ export default function TopographicMapCreator() {
         {/* Bottom Center - Help */}
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 text-center text-slate-400 text-sm">
           {isAddingLabel ? '📍 Click to label' : isPanMode ? '🖱️ Drag to pan' : '🗺️ Left: raise • Right: lower • Shift+Click: flatten'}
+        </div>
+
+        {/* Version Number */}
+        <div className="fixed bottom-1 right-2 z-40 text-slate-600 text-xs font-mono">
+          v1.1.0
         </div>
 
         {/* Map Size Selection Modal */}
@@ -1798,9 +2238,155 @@ export default function TopographicMapCreator() {
                 </div>
               </div>
               
-              <p className="text-slate-500 text-xs text-center">
+              <p className="text-slate-500 text-xs text-center mb-4">
                 Larger maps offer more detail but may be slower on some devices
               </p>
+
+              {/* Patch Notes */}
+              <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-400">Patch Notes</span>
+                  <span className="text-xs text-emerald-400 font-mono">v1.1.0</span>
+                </div>
+                <ul className="text-xs text-slate-500 space-y-1">
+                  <li>• Added help mode (?) with hover tooltips for all controls</li>
+                  <li>• New Random options: land coverage %, continent count</li>
+                  <li>• Improved continent generation with natural coastlines</li>
+                  <li>• Better biome blending with larger, smoother regions</li>
+                  <li>• Draw Biome selector for multi-biome maps</li>
+                  <li>• Controls tutorial popup on first load</li>
+                  <li>• Compact elevation legend in bottom-left</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Controls Explanation Modal */}
+        {showControlsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-8 shadow-2xl max-w-md w-full mx-4">
+              <h2 className="text-2xl font-bold text-slate-100 mb-2 text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Controls
+              </h2>
+              <p className="text-slate-400 text-sm mb-6 text-center">Here's how to create your map</p>
+
+              <div className="space-y-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <ChevronUp size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">Left Click</div>
+                    <div className="text-slate-400 text-xs">Raise terrain elevation</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <ChevronDown size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">Right Click</div>
+                    <div className="text-slate-400 text-xs">Lower terrain elevation</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs font-bold">⇧</span>
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">Shift + Click</div>
+                    <div className="text-slate-400 text-xs">Flatten terrain to clicked elevation</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Move size={16} className="text-white" />
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">Pan Mode</div>
+                    <div className="text-slate-400 text-xs">Click the hand icon to drag and navigate the map</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Shuffle size={16} className="text-white" />
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">Random</div>
+                    <div className="text-slate-400 text-xs">Generate procedural terrain instantly</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <MapPin size={16} className="text-white" />
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">Labels</div>
+                    <div className="text-slate-400 text-xs">Add place names and annotations to your map</div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowControlsModal(false)}
+                className="w-full px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-emerald-500/25"
+              >
+                Got it, let's create!
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Random Generation Options Modal */}
+        {showRandomModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 shadow-2xl max-w-xs w-full mx-4">
+              <h2 className="text-xl font-bold text-slate-100 mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Generate Terrain
+              </h2>
+
+              {/* Land/Ocean Percentage */}
+              <div className="mb-5">
+                <label className="text-xs font-bold text-slate-300 block mb-2">
+                  Land: {landPercentage}% / Ocean: {100 - landPercentage}%
+                </label>
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={landPercentage}
+                  onChange={(e) => setLandPercentage(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-600 rounded cursor-pointer accent-emerald-500"
+                />
+                <div className="flex justify-between text-xs text-slate-500 mt-1">
+                  <span>More Ocean</span>
+                  <span>More Land</span>
+                </div>
+              </div>
+
+              {/* Generate Button */}
+              <button
+                onClick={() => {
+                  setShowRandomModal(false);
+                  generateRandomMap(null, landPercentage);
+                }}
+                className="w-full px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg font-bold transition-all shadow-lg mb-3"
+              >
+                Generate
+              </button>
+
+              <button
+                onClick={() => setShowRandomModal(false)}
+                className="w-full px-4 py-2 bg-slate-600 hover:bg-slate-500 text-slate-300 rounded-lg font-medium transition-all text-sm"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}
