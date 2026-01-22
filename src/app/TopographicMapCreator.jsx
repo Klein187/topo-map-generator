@@ -644,6 +644,203 @@ const generateContinentNoise = (width, height, seedValue, landPercent = 40, numC
   return smoothed;
 };
 
+// Enhanced terrain generation with geological features
+const addGeologicalFeatures = (data, width, height, seedValue) => {
+  const enhanced = data.map(row => [...row]);
+
+  // Helper: smooth noise for feature placement
+  const smoothNoise = (x, y, scale, seed) => {
+    const xi = Math.floor(x * scale);
+    const yi = Math.floor(y * scale);
+    const xf = (x * scale) - xi;
+    const yf = (y * scale) - yi;
+
+    const n00 = seededRandom(seed + xi * 374761393 + yi * 668265263);
+    const n10 = seededRandom(seed + (xi + 1) * 374761393 + yi * 668265263);
+    const n01 = seededRandom(seed + xi * 374761393 + (yi + 1) * 668265263);
+    const n11 = seededRandom(seed + (xi + 1) * 374761393 + (yi + 1) * 668265263);
+
+    const sx = xf * xf * (3 - 2 * xf);
+    const sy = yf * yf * (3 - 2 * yf);
+
+    return n00 * (1 - sx) * (1 - sy) + n10 * sx * (1 - sy) + n01 * (1 - sx) * sy + n11 * sx * sy;
+  };
+
+  // 1. Add Mountain Ranges (3-5 ranges with ridges)
+  const numMountainRanges = 3 + Math.floor(seededRandom(seedValue * 1.1) * 3);
+  for (let i = 0; i < numMountainRanges; i++) {
+    const startX = seededRandom(seedValue + i * 100) * width;
+    const startY = seededRandom(seedValue + i * 200) * height;
+    const angle = seededRandom(seedValue + i * 300) * Math.PI * 2;
+    const length = 100 + seededRandom(seedValue + i * 400) * 300;
+    const peakHeight = 400 + seededRandom(seedValue + i * 500) * 400;
+
+    // Create ridge line
+    for (let t = 0; t < length; t += 5) {
+      const noise = smoothNoise(t, i, 0.02, seedValue + i * 600) * 50;
+      const x = Math.floor(startX + Math.cos(angle) * (t + noise));
+      const y = Math.floor(startY + Math.sin(angle) * (t + noise));
+
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        // Add mountain peak with falloff
+        const peakWidth = 30 + seededRandom(seedValue + i * 700 + t) * 40;
+        for (let dy = -peakWidth; dy <= peakWidth; dy++) {
+          for (let dx = -peakWidth; dx <= peakWidth; dx++) {
+            const px = x + dx;
+            const py = y + dy;
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < peakWidth) {
+                const falloff = 1 - (dist / peakWidth);
+                const ridgeFactor = Math.pow(falloff, 1.5); // Sharper peaks
+                const heightAdd = peakHeight * ridgeFactor;
+                enhanced[py][px] = Math.max(enhanced[py][px], data[py][px] + heightAdd);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Add Volcanoes (2-4 distinct volcanic cones)
+  const numVolcanoes = 2 + Math.floor(seededRandom(seedValue * 1.2) * 3);
+  for (let i = 0; i < numVolcanoes; i++) {
+    const vx = Math.floor(seededRandom(seedValue + i * 800) * width);
+    const vy = Math.floor(seededRandom(seedValue + i * 900) * height);
+    const radius = 40 + seededRandom(seedValue + i * 1000) * 60;
+    const height = 500 + seededRandom(seedValue + i * 1100) * 500;
+    const craterDepth = 100 + seededRandom(seedValue + i * 1200) * 150;
+    const craterRadius = radius * 0.3;
+
+    // Only place volcano on land
+    if (vx >= 0 && vx < width && vy >= 0 && vy < height && data[vy][vx] > 0) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const px = vx + dx;
+          const py = vy + dy;
+          if (px >= 0 && px < width && py >= 0 && py < height) {
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < radius) {
+              const falloff = 1 - (dist / radius);
+              // Create conical shape
+              const coneFactor = Math.pow(falloff, 0.8);
+              let heightAdd = height * coneFactor;
+
+              // Add crater at top
+              if (dist < craterRadius) {
+                const craterFalloff = dist / craterRadius;
+                heightAdd -= craterDepth * (1 - craterFalloff);
+              }
+
+              enhanced[py][px] = Math.max(enhanced[py][px], data[py][px] + heightAdd);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Add Valleys (deep cuts through terrain)
+  const numValleys = 2 + Math.floor(seededRandom(seedValue * 1.3) * 3);
+  for (let i = 0; i < numValleys; i++) {
+    const startX = seededRandom(seedValue + i * 1300) * width;
+    const startY = seededRandom(seedValue + i * 1400) * height;
+    const angle = seededRandom(seedValue + i * 1500) * Math.PI * 2;
+    const length = 150 + seededRandom(seedValue + i * 1600) * 200;
+    const depth = 100 + seededRandom(seedValue + i * 1700) * 200;
+    const valleyWidth = 20 + seededRandom(seedValue + i * 1800) * 30;
+
+    // Create winding valley
+    for (let t = 0; t < length; t += 3) {
+      const noise = smoothNoise(t, i, 0.03, seedValue + i * 1900) * 40;
+      const x = Math.floor(startX + Math.cos(angle) * t + noise);
+      const y = Math.floor(startY + Math.sin(angle) * t + noise);
+
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        // Carve valley with U-shape
+        for (let dy = -valleyWidth; dy <= valleyWidth; dy++) {
+          for (let dx = -valleyWidth; dx <= valleyWidth; dx++) {
+            const px = x + dx;
+            const py = y + dy;
+            if (px >= 0 && px < width && py >= 0 && py < height && enhanced[py][px] > 0) {
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < valleyWidth) {
+                const falloff = 1 - (dist / valleyWidth);
+                // U-shaped valley profile
+                const valleyFactor = Math.pow(falloff, 2);
+                const depthReduction = depth * valleyFactor;
+                enhanced[py][px] = Math.max(0, enhanced[py][px] - depthReduction);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Add Plains (smooth flat areas)
+  const numPlains = 3 + Math.floor(seededRandom(seedValue * 1.4) * 4);
+  for (let i = 0; i < numPlains; i++) {
+    const px = Math.floor(seededRandom(seedValue + i * 2000) * width);
+    const py = Math.floor(seededRandom(seedValue + i * 2100) * height);
+    const radius = 60 + seededRandom(seedValue + i * 2200) * 80;
+    const targetElev = 50 + seededRandom(seedValue + i * 2300) * 100;
+
+    // Only create plains on land
+    if (px >= 0 && px < width && py >= 0 && py < height && data[py][px] > 0) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const x = px + dx;
+          const y = py + dy;
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < radius) {
+              const falloff = 1 - (dist / radius);
+              const smoothFalloff = falloff * falloff * (3 - 2 * falloff);
+              // Blend towards target elevation
+              enhanced[y][x] = enhanced[y][x] * (1 - smoothFalloff * 0.7) + targetElev * smoothFalloff * 0.7;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Add Swamps (low-lying wetlands near water)
+  const numSwamps = 2 + Math.floor(seededRandom(seedValue * 1.5) * 3);
+  for (let i = 0; i < numSwamps; i++) {
+    const sx = Math.floor(seededRandom(seedValue + i * 2400) * width);
+    const sy = Math.floor(seededRandom(seedValue + i * 2500) * height);
+    const radius = 40 + seededRandom(seedValue + i * 2600) * 50;
+
+    // Check if near coastline (between -20 and 30m elevation)
+    if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+      const baseElev = data[sy][sx];
+      if (baseElev > -20 && baseElev < 30) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            const x = sx + dx;
+            const y = sy + dy;
+            if (x >= 0 && x < width && y >= 0 && y < height) {
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < radius) {
+                const falloff = 1 - (dist / radius);
+                const smoothFalloff = falloff * falloff * (3 - 2 * falloff);
+                // Create very flat, low-lying terrain
+                const swampElev = 5 + smoothNoise(x, y, 0.05, seedValue + i * 2700) * 15;
+                enhanced[y][x] = enhanced[y][x] * (1 - smoothFalloff * 0.8) + swampElev * smoothFalloff * 0.8;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return enhanced;
+};
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -1504,6 +1701,16 @@ export default function TopographicMapCreator() {
       for (let y = 0; y < canvasHeight; y++) {
         for (let x = 0; x < canvasWidth; x++) {
           newElevationData[y][x] -= seaLevelAdjust;
+        }
+      }
+
+      // Add geological features (mountains, volcanoes, valleys, plains, swamps)
+      const enhancedElevationData = addGeologicalFeatures(newElevationData, canvasWidth, canvasHeight, newSeed);
+
+      // Copy enhanced data back
+      for (let y = 0; y < canvasHeight; y++) {
+        for (let x = 0; x < canvasWidth; x++) {
+          newElevationData[y][x] = enhancedElevationData[y][x];
         }
       }
 
