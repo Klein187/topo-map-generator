@@ -2022,6 +2022,7 @@ export default function TopographicMapCreator() {
                     <li>• Added middle mouse button explanation to the movement controls</li>
                     <li>• When hovering over different buttons a window will popup with an explanation</li>
                     <li>• Lowered opacity on various button windows</li>
+                    <li>• Added an extra large map option which is the original large map size, the new large map is 75% of extra large</li>
                   </ul>
                 </div>
               </div>
