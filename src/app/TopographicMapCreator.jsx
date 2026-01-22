@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, HelpCircle } from 'lucide-react';
+import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, HelpCircle } from 'lucide-react';
 
 // ============================================================================
 // CONSTANTS
@@ -239,6 +239,60 @@ const getElevationColor = (elevation, biome = BIOME_TYPES.TEMPERATE) => {
     if (elevation < threshold) return color;
   }
   return colorStops[colorStops.length - 1][1];
+};
+
+// Simple random terrain generation
+const generateRandomTerrain = (width, height) => {
+  const data = [];
+  const scale = 0.003;
+
+  // Generate random noise
+  for (let y = 0; y < height; y++) {
+    data[y] = [];
+    for (let x = 0; x < width; x++) {
+      // Simple random with position-based variation
+      const noise1 = Math.sin(x * scale) * Math.cos(y * scale);
+      const noise2 = Math.sin(x * scale * 2.5 + 100) * Math.cos(y * scale * 2.5 + 100);
+      const noise3 = Math.sin(x * scale * 5 + 200) * Math.cos(y * scale * 5 + 200);
+
+      // Combine multiple noise octaves
+      let elevation = (noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2 + Math.random() * 0.1);
+
+      // Add center falloff for island effect
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+      const maxDist = Math.sqrt(centerX ** 2 + centerY ** 2);
+      const falloff = 1 - ((distFromCenter / maxDist) ** 2) * 0.3;
+
+      elevation *= falloff;
+
+      // Scale to elevation range
+      if (elevation < 0) {
+        elevation = elevation * 300; // Ocean depths
+      } else {
+        elevation = elevation * 600; // Land heights
+      }
+
+      data[y][x] = elevation;
+    }
+  }
+
+  // Smoothing pass
+  const smoothed = data.map(row => [...row]);
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const avg = (
+          data[y-1][x] + data[y+1][x] +
+          data[y][x-1] + data[y][x+1]
+        ) / 4;
+        smoothed[y][x] = data[y][x] * 0.7 + avg * 0.3;
+      }
+    }
+  }
+
+  return smoothed;
 };
 
 // ============================================================================
@@ -945,6 +999,34 @@ export default function TopographicMapCreator() {
     setShowElevationNumbers(!showElevationNumbers);
   }, [showElevationNumbers, brushSize, previousBrushSize]);
 
+  const generateRandom = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    // Clear undo history when generating new map
+    undoHistoryRef.current = [];
+    setCanUndo(false);
+
+    // Generate random terrain
+    const newElevationData = generateRandomTerrain(canvasWidth, canvasHeight);
+    elevationDataRef.current = newElevationData;
+
+    // Draw to canvas
+    for (let y = 0; y < canvasHeight; y++) {
+      for (let x = 0; x < canvasWidth; x++) {
+        const elev = newElevationData[y][x];
+        const color = getElevationColor(elev, selectedBiomes[0]);
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // Redraw contours if enabled
+    if (showContours) {
+      setTimeout(() => drawContourLines(), 50);
+    }
+  }, [canvasWidth, canvasHeight, selectedBiomes, showContours, drawContourLines]);
+
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -1320,6 +1402,25 @@ export default function TopographicMapCreator() {
           <h1 className="text-3xl font-bold text-slate-100 mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>Topographic Map</h1>
           <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-md rounded-lg p-4 border border-slate-600 shadow-lg">
             <div className="flex gap-2 mb-3">
+              <div
+                className="relative flex-1"
+                onMouseEnter={() => setHoveredButton('random')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onClick={generateRandom}
+                  className="w-full px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded font-medium text-sm flex items-center justify-center gap-1"
+                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
+                >
+                  <Shuffle size={14} /> Random
+                </button>
+                {hoveredButton === 'random' && (
+                  <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Random Terrain</div>
+                    <div className="text-slate-400 text-xs">Generate random terrain with mountains and oceans.</div>
+                  </div>
+                )}
+              </div>
               <div
                 className="relative flex-1"
                 onMouseEnter={() => setHoveredButton('clear')}
