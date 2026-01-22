@@ -241,53 +241,101 @@ const getElevationColor = (elevation, biome = BIOME_TYPES.TEMPERATE) => {
   return colorStops[colorStops.length - 1][1];
 };
 
-// Simple random terrain generation
+// Improved random terrain generation with proper Perlin-style noise
 const generateRandomTerrain = (width, height) => {
   const data = [];
-  const scale = 0.003;
+  const seed = Math.random() * 100000;
 
-  // Generate random noise
+  // Seeded random function
+  const seededRandom = (s) => {
+    const x = Math.sin(s) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Perlin noise helper
+  const getNoise = (x, y, octave) => {
+    return seededRandom(seed + x * 12.9898 + y * 78.233 + octave * 43758.5453);
+  };
+
+  // Interpolation function
+  const smoothstep = (t) => t * t * (3 - 2 * t);
+
+  // Generate terrain with multi-octave Perlin noise
+  const octaves = 6;
+  const persistence = 0.5;
+  const lacunarity = 2.0;
+  const scale = 0.002;
+
   for (let y = 0; y < height; y++) {
     data[y] = [];
     for (let x = 0; x < width; x++) {
-      // Simple random with position-based variation
-      const noise1 = Math.sin(x * scale) * Math.cos(y * scale);
-      const noise2 = Math.sin(x * scale * 2.5 + 100) * Math.cos(y * scale * 2.5 + 100);
-      const noise3 = Math.sin(x * scale * 5 + 200) * Math.cos(y * scale * 5 + 200);
+      let elevation = 0;
+      let amplitude = 1;
+      let frequency = 1;
+      let maxValue = 0;
 
-      // Combine multiple noise octaves
-      let elevation = (noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2 + Math.random() * 0.1);
+      // Multi-octave noise for natural terrain
+      for (let o = 0; o < octaves; o++) {
+        const sampleX = x * scale * frequency;
+        const sampleY = y * scale * frequency;
 
-      // Add center falloff for island effect
+        const x0 = Math.floor(sampleX);
+        const x1 = x0 + 1;
+        const y0 = Math.floor(sampleY);
+        const y1 = y0 + 1;
+
+        const n00 = getNoise(x0, y0, o);
+        const n10 = getNoise(x1, y0, o);
+        const n01 = getNoise(x0, y1, o);
+        const n11 = getNoise(x1, y1, o);
+
+        const fx = sampleX - x0;
+        const fy = sampleY - y0;
+        const sx = smoothstep(fx);
+        const sy = smoothstep(fy);
+
+        const i1 = n00 * (1 - sx) + n10 * sx;
+        const i2 = n01 * (1 - sx) + n11 * sx;
+        const noise = i1 * (1 - sy) + i2 * sy;
+
+        elevation += noise * amplitude;
+        maxValue += amplitude;
+
+        amplitude *= persistence;
+        frequency *= lacunarity;
+      }
+
+      // Normalize
+      elevation = (elevation / maxValue) * 2 - 1;
+
+      // Add gentle center falloff for island effect
       const centerX = width / 2;
       const centerY = height / 2;
       const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
       const maxDist = Math.sqrt(centerX ** 2 + centerY ** 2);
-      const falloff = 1 - ((distFromCenter / maxDist) ** 2) * 0.3;
+      const falloff = 1 - ((distFromCenter / maxDist) ** 2.5) * 0.2;
 
       elevation *= falloff;
+      elevation -= 0.1; // Lower sea level slightly
 
       // Scale to elevation range
       if (elevation < 0) {
         elevation = elevation * 300; // Ocean depths
       } else {
-        elevation = elevation * 600; // Land heights
+        elevation = Math.pow(elevation, 0.7) * 800; // Land heights with exponential scaling
       }
 
       data[y][x] = elevation;
     }
   }
 
-  // Smoothing pass
+  // Smoothing pass for natural look
   const smoothed = data.map(row => [...row]);
-  for (let pass = 0; pass < 2; pass++) {
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const avg = (
-          data[y-1][x] + data[y+1][x] +
-          data[y][x-1] + data[y][x+1]
-        ) / 4;
-        smoothed[y][x] = data[y][x] * 0.7 + avg * 0.3;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      if (data[y][x] > 0) {
+        const avg = (data[y - 1][x] + data[y + 1][x] + data[y][x - 1] + data[y][x + 1]) / 4;
+        smoothed[y][x] = data[y][x] * 0.9 + avg * 0.1;
       }
     }
   }
