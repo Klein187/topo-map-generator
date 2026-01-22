@@ -19,8 +19,8 @@ const TerrainTypes = {
   SNOW: { elevation: 1000, name: 'Snow Peak', icon: Mountain, color: '#f8fafc' }
 };
 
-const CANVAS_WIDTH = 4000;
-const CANVAS_HEIGHT = 2400;
+const CANVAS_WIDTH = 2000;
+const CANVAS_HEIGHT = 1200;
 
 const MAP_SIZES = {
   large: { width: 4000, height: 2400, label: 'Large', description: '4000 × 2400' },
@@ -249,7 +249,7 @@ const generateBiomeMap = (width, height, seedValue, biomes) => {
 
   const biomeMap = [];
   const scale = 0.0008; // Larger scale for bigger, more natural biome regions
-  const octaves = 4;
+  const octaves = 2; // Reduced from 4 for better performance
   const persistence = 0.6;
   
   // Generate smooth noise for biome selection
@@ -333,7 +333,7 @@ const generateBiomeBlendMap = (width, height, seedValue, biomes) => {
 
   const blendMap = [];
   const scale = 0.0008; // Match biome map scale for consistency
-  const octaves = 4;
+  const octaves = 2; // Reduced from 4 for better performance
   const persistence = 0.6;
   
   const getBiomeNoise = (x, y) => {
@@ -1694,67 +1694,183 @@ export default function TopographicMapCreator() {
 
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      const newElevationData = generatePerlinNoise(canvasWidth, canvasHeight, newSeed);
 
-      // Adjust sea level based on land percentage
-      const seaLevelAdjust = (50 - landPercent) * 4;
-      for (let y = 0; y < canvasHeight; y++) {
-        for (let x = 0; x < canvasWidth; x++) {
-          newElevationData[y][x] -= seaLevelAdjust;
+      // Phase 1: Generate terrain (chunked for responsiveness)
+      const chunkSize = 100; // Process 100 rows at a time
+      let currentRow = 0;
+      const newElevationData = [];
+
+      const processTerrainChunk = () => {
+        const endRow = Math.min(currentRow + chunkSize, canvasHeight);
+
+        // Generate Perlin noise for this chunk
+        for (let y = currentRow; y < endRow; y++) {
+          if (!newElevationData[y]) {
+            newElevationData[y] = [];
+          }
+          for (let x = 0; x < canvasWidth; x++) {
+            // Inline simplified Perlin noise for better performance
+            const octaves = 5;
+            const persistence = 0.5;
+            const lacunarity = 2.0;
+            const scale = 0.002;
+
+            let elevation = 0;
+            let amplitude = 1;
+            let frequency = 1;
+            let maxValue = 0;
+
+            for (let o = 0; o < octaves; o++) {
+              const sampleX = x * scale * frequency;
+              const sampleY = y * scale * frequency;
+
+              const x0 = Math.floor(sampleX);
+              const y0 = Math.floor(sampleY);
+
+              const fx = sampleX - x0;
+              const fy = sampleY - y0;
+              const sx = fx * fx * (3 - 2 * fx);
+              const sy = fy * fy * (3 - 2 * fy);
+
+              const n00 = seededRandom(newSeed + x0 * 12.9898 + y0 * 78.233 + o * 43758.5453);
+              const n10 = seededRandom(newSeed + (x0 + 1) * 12.9898 + y0 * 78.233 + o * 43758.5453);
+              const n01 = seededRandom(newSeed + x0 * 12.9898 + (y0 + 1) * 78.233 + o * 43758.5453);
+              const n11 = seededRandom(newSeed + (x0 + 1) * 12.9898 + (y0 + 1) * 78.233 + o * 43758.5453);
+
+              const i1 = n00 * (1 - sx) + n10 * sx;
+              const i2 = n01 * (1 - sx) + n11 * sx;
+              const noise = i1 * (1 - sy) + i2 * sy;
+
+              elevation += noise * amplitude;
+              maxValue += amplitude;
+
+              amplitude *= persistence;
+              frequency *= lacunarity;
+            }
+
+            elevation = (elevation / maxValue) * 2 - 1;
+
+            // Apply falloff and elevation mapping
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+            const maxDist = Math.sqrt(centerX ** 2 + centerY ** 2);
+            const falloff = 1 - ((distFromCenter / maxDist) ** 2.5) * 0.2;
+
+            elevation *= falloff;
+            elevation -= 0.1;
+
+            if (elevation < 0) {
+              elevation = elevation * 300;
+            } else {
+              elevation = Math.pow(elevation, 0.7) * 800;
+            }
+
+            // Apply sea level adjustment immediately
+            const seaLevelAdjust = (50 - landPercent) * 4;
+            newElevationData[y][x] = elevation - seaLevelAdjust;
+          }
         }
-      }
 
-      // Add geological features (mountains, volcanoes, valleys, plains, swamps)
-      const enhancedElevationData = addGeologicalFeatures(newElevationData, canvasWidth, canvasHeight, newSeed);
+        currentRow = endRow;
 
-      // Copy enhanced data back
-      for (let y = 0; y < canvasHeight; y++) {
-        for (let x = 0; x < canvasWidth; x++) {
-          newElevationData[y][x] = enhancedElevationData[y][x];
+        if (currentRow < canvasHeight) {
+          requestAnimationFrame(processTerrainChunk);
+        } else {
+          // Phase 2: Add geological features and finish
+          finalizeGeneration();
         }
-      }
+      };
 
-      // Generate biome maps with blending
-      const newBiomeMap = generateBiomeMap(canvasWidth, canvasHeight, newSeed, selectedBiomes);
-      const newBlendMap = generateBiomeBlendMap(canvasWidth, canvasHeight, newSeed, selectedBiomes);
-      biomeMapRef.current = newBiomeMap;
-      biomeBlendMapRef.current = newBlendMap;
+      const finalizeGeneration = () => {
+        // Smoothing pass (only on land)
+        const smoothed = newElevationData.map(row => [...row]);
+        for (let y = 1; y < canvasHeight - 1; y++) {
+          for (let x = 1; x < canvasWidth - 1; x++) {
+            if (newElevationData[y][x] > 0) {
+              const avg = (newElevationData[y - 1][x] + newElevationData[y + 1][x] +
+                           newElevationData[y][x - 1] + newElevationData[y][x + 1]) / 4;
+              smoothed[y][x] = newElevationData[y][x] * 0.9 + avg * 0.1;
+            }
+          }
+        }
 
-      const imageData = ctx.createImageData(canvasWidth, canvasHeight);
-      const pixelData = imageData.data;
+        // Add geological features
+        const enhancedElevationData = addGeologicalFeatures(smoothed, canvasWidth, canvasHeight, newSeed);
 
-      for (let y = 0; y < canvasHeight; y++) {
-        for (let x = 0; x < canvasWidth; x++) {
-          const elev = newElevationData[y][x];
-          let color;
+        // Generate biome maps
+        const newBiomeMap = generateBiomeMap(canvasWidth, canvasHeight, newSeed, selectedBiomes);
+        const newBlendMap = generateBiomeBlendMap(canvasWidth, canvasHeight, newSeed, selectedBiomes);
+        biomeMapRef.current = newBiomeMap;
+        biomeBlendMapRef.current = newBlendMap;
 
-          if (newBlendMap && newBlendMap[y]?.[x]) {
-            color = getBlendedElevationColor(elev, newBlendMap[y][x]);
-          } else {
-            color = getElevationColor(elev, selectedBiomes[0]);
+        // Render to canvas (chunked)
+        renderTerrain(enhancedElevationData, newBlendMap, newBiomeMap);
+      };
+
+      const renderTerrain = (elevationData, blendMap, biomeMap) => {
+        const imageData = ctx.createImageData(canvasWidth, canvasHeight);
+        const pixelData = imageData.data;
+
+        // Pre-create color cache for better performance
+        const colorCache = new Map();
+        const getColorRGB = (color) => {
+          if (!colorCache.has(color)) {
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            colorCache.set(color, [r, g, b]);
+          }
+          return colorCache.get(color);
+        };
+
+        let currentRow = 0;
+        const renderChunkSize = 200;
+
+        const renderChunk = () => {
+          const endRow = Math.min(currentRow + renderChunkSize, canvasHeight);
+
+          for (let y = currentRow; y < endRow; y++) {
+            for (let x = 0; x < canvasWidth; x++) {
+              const elev = elevationData[y][x];
+              let color;
+
+              if (blendMap && blendMap[y]?.[x]) {
+                color = getBlendedElevationColor(elev, blendMap[y][x]);
+              } else {
+                color = getElevationColor(elev, selectedBiomes[0]);
+              }
+
+              const [r, g, b] = getColorRGB(color);
+              const index = (y * canvasWidth + x) * 4;
+              pixelData[index] = r;
+              pixelData[index + 1] = g;
+              pixelData[index + 2] = b;
+              pixelData[index + 3] = 255;
+            }
           }
 
-          const r = parseInt(color.slice(1, 3), 16);
-          const g = parseInt(color.slice(3, 5), 16);
-          const b = parseInt(color.slice(5, 7), 16);
+          currentRow = endRow;
 
-          const index = (y * canvasWidth + x) * 4;
-          pixelData[index] = r;
-          pixelData[index + 1] = g;
-          pixelData[index + 2] = b;
-          pixelData[index + 3] = 255;
-        }
-      }
+          if (currentRow < canvasHeight) {
+            requestAnimationFrame(renderChunk);
+          } else {
+            ctx.putImageData(imageData, 0, 0);
+            elevationDataRef.current = elevationData;
 
-      ctx.putImageData(imageData, 0, 0);
-      elevationDataRef.current = newElevationData;
+            if (showContours) {
+              setTimeout(() => drawContourLines(), 50);
+            }
 
-      if (showContours) {
-        setTimeout(() => drawContourLines(), 50);
-      }
+            setGeneratingTerrain(false);
+          }
+        };
 
-      setGeneratingTerrain(false);
-    }, 500);
+        renderChunk();
+      };
+
+      processTerrainChunk();
+    }, 100);
   }, [showContours, drawContourLines, canvasWidth, canvasHeight, selectedBiomes]);
 
   const handleGenerateFromSeed = useCallback(() => {
