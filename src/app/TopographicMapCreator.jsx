@@ -2309,20 +2309,6 @@ export default function TopographicMapCreator() {
           </div>
         )}
 
-        {/* Terrain Generation Progress Box */}
-        {generatingTerrain && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-slate-800 border border-slate-600 rounded-lg p-8 shadow-2xl max-w-sm">
-              <div className="text-center">
-                <div className="mb-4 flex justify-center">
-                  <div className="w-12 h-12 border-4 border-slate-600 border-t-violet-500 rounded-full animate-spin"></div>
-                </div>
-                <p className="text-slate-100 font-medium">Creating Terrain...</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Download Progress Box */}
         {downloadProgress && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
