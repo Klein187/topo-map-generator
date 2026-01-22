@@ -1704,15 +1704,8 @@ export default function TopographicMapCreator() {
         }
       }
 
-      // Add geological features (mountains, volcanoes, valleys, plains, swamps)
-      const enhancedElevationData = addGeologicalFeatures(newElevationData, canvasWidth, canvasHeight, newSeed);
-
-      // Copy enhanced data back
-      for (let y = 0; y < canvasHeight; y++) {
-        for (let x = 0; x < canvasWidth; x++) {
-          newElevationData[y][x] = enhancedElevationData[y][x];
-        }
-      }
+      // Removed geological features (mountains, volcanoes, valleys, plains, swamps)
+      // Now using basic Perlin noise terrain only
 
       // Generate biome maps with blending
       const newBiomeMap = generateBiomeMap(canvasWidth, canvasHeight, newSeed, selectedBiomes);
