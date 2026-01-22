@@ -2010,17 +2010,20 @@ export default function TopographicMapCreator() {
               <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-400">Patch Notes</span>
-                  <span className="text-xs text-emerald-400 font-mono">v1.2.0</span>
+                  <span className="text-xs text-emerald-400 font-mono">v1.3.0</span>
                 </div>
-                <ul className="text-xs text-slate-500 space-y-1">
-                  <li>• Added Land Elevation slider (Ctrl+Click to paint heights)</li>
-                  <li>• Natural biome blending when painting between biomes</li>
-                  <li>• Middle mouse button pan instructions in controls</li>
-                  <li>• Help mode (?) with hover tooltips for all controls</li>
-                  <li>• Random terrain: land coverage %, continent count</li>
-                  <li>• Improved biome blending with smoother transitions</li>
-                  <li>• Draw Biome selector for multi-biome maps</li>
-                </ul>
+                <div className="max-h-48 overflow-y-auto">
+                  <ul className="text-xs text-slate-500 space-y-1 pr-2">
+                    <li>• Deleted old Random generation, encountered a catastrophic error.</li>
+                    <li>• Added Land/Ocean sliders to more control when painting</li>
+                    <li>• Added an undo button that will undo up to 3 previous actions</li>
+                    <li>• Moved elevation data to show next to cursor instead of bottom right corner</li>
+                    <li>• Added more to oceans and added more visual representation.</li>
+                    <li>• Added middle mouse button explanation to the movement controls</li>
+                    <li>• When hovering over different buttons a window will popup with an explanation</li>
+                    <li>• Lowered opacity on various button windows</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
