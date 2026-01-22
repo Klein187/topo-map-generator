@@ -1939,7 +1939,7 @@ export default function TopographicMapCreator() {
         {/* Top Left - Title & Generation */}
         <div className="fixed top-4 left-4 z-50 max-w-sm">
           <h1 className="text-3xl font-bold text-slate-100 mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>Topographic Map</h1>
-          <div className="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-md rounded-lg p-4 border border-slate-600 shadow-lg">
+          <div className="bg-gradient-to-r from-slate-800/95 to-slate-700/95 backdrop-blur-md rounded-lg p-4 border border-slate-600 shadow-lg">
             <div className="flex gap-2 mb-3">
               <div
                 className="relative flex-1"
@@ -2242,7 +2242,7 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-32 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            className="relative w-32 p-2 bg-slate-700/95 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('brushSize')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
@@ -2258,7 +2258,7 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-28 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            className="relative w-28 p-2 bg-slate-700/95 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('brushShape')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
@@ -2280,7 +2280,7 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-32 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            className="relative w-32 p-2 bg-slate-700/95 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('oceanDepth')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
@@ -2305,7 +2305,7 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-32 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            className="relative w-32 p-2 bg-slate-700/95 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('landElevation')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
@@ -2332,7 +2332,7 @@ export default function TopographicMapCreator() {
           {/* Biome Selection for Drawing */}
           {selectedBiomes.length > 1 && (
             <div
-              className="relative w-40 p-3 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+              className="relative w-40 p-3 bg-slate-700/95 backdrop-blur rounded border border-slate-600"
               onMouseEnter={() => setHoveredButton('drawBiome')}
               onMouseLeave={() => setHoveredButton(null)}
               style={{ cursor: helpMode ? 'help' : 'default' }}
@@ -2388,7 +2388,7 @@ export default function TopographicMapCreator() {
 
         {/* Bottom Right - Zoom */}
         <div className="fixed bottom-4 right-4 z-50 text-center">
-          <div className="bg-slate-900/90 backdrop-blur px-4 py-2 rounded border border-slate-600 text-slate-300 text-sm font-medium mb-2">
+          <div className="bg-slate-900/95 backdrop-blur px-4 py-2 rounded border border-slate-600 text-slate-300 text-sm font-medium mb-2">
             {(zoom * 100).toFixed(0)}%
           </div>
         </div>
