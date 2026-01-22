@@ -1939,11 +1939,11 @@ export default function TopographicMapCreator() {
         {/* Top Left - Title & Generation */}
         <div className="fixed top-4 left-4 z-50 max-w-sm">
           <h1 className="text-3xl font-bold text-slate-100 mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>Topographic Map</h1>
-          <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 backdrop-blur-md rounded-lg p-4 border border-slate-600 shadow-lg">
+          <div className="bg-gradient-to-r from-slate-800/90 to-slate-700/90 backdrop-blur-md rounded-lg p-4 border border-slate-600 shadow-lg">
             <div className="flex gap-2 mb-3">
               <div
                 className="relative flex-1"
-                onMouseEnter={() => helpMode && setHoveredButton('random')}
+                onMouseEnter={() => setHoveredButton('random')}
                 onMouseLeave={() => setHoveredButton(null)}
               >
                 <button
@@ -1953,7 +1953,7 @@ export default function TopographicMapCreator() {
                 >
                   <Shuffle size={14} /> Random
                 </button>
-                {helpMode && hoveredButton === 'random' && (
+                {hoveredButton === 'random' && (
                   <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                     <div className="text-slate-100 font-medium text-sm">Random Generate</div>
                     <div className="text-slate-400 text-xs">Generate terrain with land/ocean settings.</div>
@@ -1962,7 +1962,7 @@ export default function TopographicMapCreator() {
               </div>
               <div
                 className="relative flex-1"
-                onMouseEnter={() => helpMode && setHoveredButton('clear')}
+                onMouseEnter={() => setHoveredButton('clear')}
                 onMouseLeave={() => setHoveredButton(null)}
               >
                 <button
@@ -1972,7 +1972,7 @@ export default function TopographicMapCreator() {
                 >
                   <Trash2 size={14} /> Clear
                 </button>
-                {helpMode && hoveredButton === 'clear' && (
+                {hoveredButton === 'clear' && (
                   <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                     <div className="text-slate-100 font-medium text-sm">Clear Canvas</div>
                     <div className="text-slate-400 text-xs">Erase all terrain and start with a blank ocean map.</div>
@@ -1981,7 +1981,7 @@ export default function TopographicMapCreator() {
               </div>
               <div
                 className="relative flex-1"
-                onMouseEnter={() => helpMode && setHoveredButton('download')}
+                onMouseEnter={() => setHoveredButton('download')}
                 onMouseLeave={() => setHoveredButton(null)}
               >
                 <button
@@ -1991,7 +1991,7 @@ export default function TopographicMapCreator() {
                 >
                   <Download size={14} /> Download
                 </button>
-                {helpMode && hoveredButton === 'download' && (
+                {hoveredButton === 'download' && (
                   <div className="absolute right-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                     <div className="text-slate-100 font-medium text-sm">Download Map</div>
                     <div className="text-slate-400 text-xs">Save your map as a PNG image file.</div>
@@ -2001,7 +2001,7 @@ export default function TopographicMapCreator() {
             </div>
             <div
               className="relative mb-3"
-              onMouseEnter={() => helpMode && setHoveredButton('newMap')}
+              onMouseEnter={() => setHoveredButton('newMap')}
               onMouseLeave={() => setHoveredButton(null)}
             >
               <button
@@ -2015,7 +2015,7 @@ export default function TopographicMapCreator() {
               >
                 <Map size={14} /> New Map
               </button>
-              {helpMode && hoveredButton === 'newMap' && (
+              {hoveredButton === 'newMap' && (
                 <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
                   <div className="text-slate-100 font-medium text-sm">New Map</div>
                   <div className="text-slate-400 text-xs">Start fresh with new biome and size selection.</div>
@@ -2024,7 +2024,7 @@ export default function TopographicMapCreator() {
             </div>
             <div
               className="relative"
-              onMouseEnter={() => helpMode && setHoveredButton('seed')}
+              onMouseEnter={() => setHoveredButton('seed')}
               onMouseLeave={() => setHoveredButton(null)}
             >
               <div className="flex gap-2">
@@ -2044,7 +2044,7 @@ export default function TopographicMapCreator() {
                   Use
                 </button>
               </div>
-              {helpMode && hoveredButton === 'seed' && (
+              {hoveredButton === 'seed' && (
                 <div className="absolute left-0 top-10 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
                   <div className="text-slate-100 font-medium text-sm">Seed Input</div>
                   <div className="text-slate-400 text-xs">Enter a number to recreate a specific terrain. Same seed = same map.</div>
@@ -2059,7 +2059,7 @@ export default function TopographicMapCreator() {
         <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('pan')}
+            onMouseEnter={() => setHoveredButton('pan')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2071,7 +2071,7 @@ export default function TopographicMapCreator() {
             >
               <Move size={18} />
             </button>
-            {helpMode && hoveredButton === 'pan' && (
+            {hoveredButton === 'pan' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Pan Mode</div>
                 <div className="text-slate-400 text-xs">Click and drag to navigate around the map.</div>
@@ -2080,7 +2080,7 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('zoomIn')}
+            onMouseEnter={() => setHoveredButton('zoomIn')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2091,7 +2091,7 @@ export default function TopographicMapCreator() {
             >
               <ZoomIn size={18} />
             </button>
-            {helpMode && hoveredButton === 'zoomIn' && (
+            {hoveredButton === 'zoomIn' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Zoom In</div>
                 <div className="text-slate-400 text-xs">Increase the zoom level to see more detail.</div>
@@ -2100,7 +2100,7 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('zoomOut')}
+            onMouseEnter={() => setHoveredButton('zoomOut')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2111,7 +2111,7 @@ export default function TopographicMapCreator() {
             >
               <ZoomOut size={18} />
             </button>
-            {helpMode && hoveredButton === 'zoomOut' && (
+            {hoveredButton === 'zoomOut' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Zoom Out</div>
                 <div className="text-slate-400 text-xs">Decrease the zoom level to see more of the map.</div>
@@ -2120,7 +2120,7 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('undo')}
+            onMouseEnter={() => setHoveredButton('undo')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2132,7 +2132,7 @@ export default function TopographicMapCreator() {
             >
               <Undo size={18} />
             </button>
-            {helpMode && hoveredButton === 'undo' && (
+            {hoveredButton === 'undo' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Undo</div>
                 <div className="text-slate-400 text-xs">Undo your last drawing action (up to 3 actions).</div>
@@ -2141,7 +2141,7 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('contours')}
+            onMouseEnter={() => setHoveredButton('contours')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2163,7 +2163,7 @@ export default function TopographicMapCreator() {
             >
               <Layers size={18} />
             </button>
-            {helpMode && hoveredButton === 'contours' && (
+            {hoveredButton === 'contours' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Contour Lines</div>
                 <div className="text-slate-400 text-xs">Toggle topographic contour lines showing elevation changes.</div>
@@ -2172,7 +2172,7 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('elevation')}
+            onMouseEnter={() => setHoveredButton('elevation')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2183,7 +2183,7 @@ export default function TopographicMapCreator() {
             >
               <Hash size={18} />
             </button>
-            {helpMode && hoveredButton === 'elevation' && (
+            {hoveredButton === 'elevation' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Elevation Display</div>
                 <div className="text-slate-400 text-xs">Show elevation in meters at your cursor position.</div>
@@ -2192,7 +2192,7 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('label')}
+            onMouseEnter={() => setHoveredButton('label')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2208,7 +2208,7 @@ export default function TopographicMapCreator() {
             >
               <MapPin size={18} />
             </button>
-            {helpMode && hoveredButton === 'label' && (
+            {hoveredButton === 'label' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Add Labels</div>
                 <div className="text-slate-400 text-xs">Click on the map to add place names and annotations.</div>
@@ -2217,7 +2217,7 @@ export default function TopographicMapCreator() {
           </div>
           <div
             className="relative"
-            onMouseEnter={() => helpMode && setHoveredButton('help')}
+            onMouseEnter={() => setHoveredButton('help')}
             onMouseLeave={() => setHoveredButton(null)}
           >
             <button
@@ -2233,7 +2233,7 @@ export default function TopographicMapCreator() {
             >
               <HelpCircle size={18} />
             </button>
-            {helpMode && hoveredButton === 'help' && (
+            {hoveredButton === 'help' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Help Mode</div>
                 <div className="text-slate-400 text-xs">Hover over buttons to see what they do. Click again to exit.</div>
@@ -2242,14 +2242,14 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-32 p-2 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
-            onMouseEnter={() => helpMode && setHoveredButton('brushSize')}
+            className="relative w-32 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => setHoveredButton('brushSize')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
           >
             <label className="text-xs font-bold text-slate-300 block mb-1">Size: {brushSize}px</label>
             <input type="range" min={BRUSH_CONSTANTS.MIN_SIZE} max={BRUSH_CONSTANTS.MAX_SIZE} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-full h-2 bg-slate-600 rounded" style={{ cursor: helpMode ? 'help' : 'pointer' }} />
-            {helpMode && hoveredButton === 'brushSize' && (
+            {hoveredButton === 'brushSize' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Brush Size</div>
                 <div className="text-slate-400 text-xs">Adjust how large your terrain brush is when painting.</div>
@@ -2258,8 +2258,8 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-28 p-2 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
-            onMouseEnter={() => helpMode && setHoveredButton('brushShape')}
+            className="relative w-28 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => setHoveredButton('brushShape')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
           >
@@ -2271,7 +2271,7 @@ export default function TopographicMapCreator() {
                 </button>
               ))}
             </div>
-            {helpMode && hoveredButton === 'brushShape' && (
+            {hoveredButton === 'brushShape' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Brush Shape</div>
                 <div className="text-slate-400 text-xs">Choose between circular or square brush for painting terrain.</div>
@@ -2280,8 +2280,8 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-32 p-2 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
-            onMouseEnter={() => helpMode && setHoveredButton('oceanDepth')}
+            className="relative w-32 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => setHoveredButton('oceanDepth')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
           >
@@ -2296,7 +2296,7 @@ export default function TopographicMapCreator() {
               className="w-full h-2 bg-slate-600 rounded accent-blue-500"
               style={{ cursor: helpMode ? 'help' : 'pointer' }}
             />
-            {helpMode && hoveredButton === 'oceanDepth' && (
+            {hoveredButton === 'oceanDepth' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Ocean Depth</div>
                 <div className="text-slate-400 text-xs">Right-click to paint ocean depths. Drag the slider to select depth level from shallow (-0m) to abyssal trenches (-600m).</div>
@@ -2305,8 +2305,8 @@ export default function TopographicMapCreator() {
           </div>
 
           <div
-            className="relative w-32 p-2 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
-            onMouseEnter={() => helpMode && setHoveredButton('landElevation')}
+            className="relative w-32 p-2 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+            onMouseEnter={() => setHoveredButton('landElevation')}
             onMouseLeave={() => setHoveredButton(null)}
             style={{ cursor: helpMode ? 'help' : 'default' }}
           >
@@ -2321,7 +2321,7 @@ export default function TopographicMapCreator() {
               className="w-full h-2 bg-slate-600 rounded accent-green-500"
               style={{ cursor: helpMode ? 'help' : 'pointer' }}
             />
-            {helpMode && hoveredButton === 'landElevation' && (
+            {hoveredButton === 'landElevation' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Land Elevation</div>
                 <div className="text-slate-400 text-xs">Left-click to paint land elevations. Drag the slider to select elevation level from sea level (0m) to mountain peaks (800m).</div>
@@ -2332,8 +2332,8 @@ export default function TopographicMapCreator() {
           {/* Biome Selection for Drawing */}
           {selectedBiomes.length > 1 && (
             <div
-              className="relative w-40 p-3 bg-slate-700/60 backdrop-blur rounded border border-slate-600"
-              onMouseEnter={() => helpMode && setHoveredButton('drawBiome')}
+              className="relative w-40 p-3 bg-slate-700/90 backdrop-blur rounded border border-slate-600"
+              onMouseEnter={() => setHoveredButton('drawBiome')}
               onMouseLeave={() => setHoveredButton(null)}
               style={{ cursor: helpMode ? 'help' : 'default' }}
             >
@@ -2349,7 +2349,7 @@ export default function TopographicMapCreator() {
                   <option key={biome} value={biome} className="capitalize">{biome}</option>
                 ))}
               </select>
-              {helpMode && hoveredButton === 'drawBiome' && (
+              {hoveredButton === 'drawBiome' && (
                 <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                   <div className="text-slate-100 font-medium text-sm">Drawing Biome</div>
                   <div className="text-slate-400 text-xs">Choose which biome colors to use when painting terrain.</div>
@@ -2362,7 +2362,7 @@ export default function TopographicMapCreator() {
         {/* Bottom Left - Legend */}
         <div
           className="fixed bottom-3 left-3 z-50 bg-slate-800/80 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50"
-          onMouseEnter={() => helpMode && setHoveredButton('legend')}
+          onMouseEnter={() => setHoveredButton('legend')}
           onMouseLeave={() => setHoveredButton(null)}
           style={{ cursor: helpMode ? 'help' : 'default', width: 'fit-content' }}
         >
@@ -2378,7 +2378,7 @@ export default function TopographicMapCreator() {
               </div>
             ))}
           </div>
-          {helpMode && hoveredButton === 'legend' && (
+          {hoveredButton === 'legend' && (
             <div className="absolute left-0 bottom-full mb-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl z-50 pointer-events-none" style={{ width: '180px' }}>
               <div className="text-slate-100 font-medium text-sm">Elevation Legend</div>
               <div className="text-slate-400 text-xs">Ocean (left) to peaks (right).</div>
@@ -2388,7 +2388,7 @@ export default function TopographicMapCreator() {
 
         {/* Bottom Right - Zoom */}
         <div className="fixed bottom-4 right-4 z-50 text-center">
-          <div className="bg-slate-900/60 backdrop-blur px-4 py-2 rounded border border-slate-600 text-slate-300 text-sm font-medium mb-2">
+          <div className="bg-slate-900/90 backdrop-blur px-4 py-2 rounded border border-slate-600 text-slate-300 text-sm font-medium mb-2">
             {(zoom * 100).toFixed(0)}%
           </div>
         </div>
