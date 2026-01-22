@@ -23,7 +23,8 @@ const CANVAS_WIDTH = 2000;
 const CANVAS_HEIGHT = 1200;
 
 const MAP_SIZES = {
-  large: { width: 4000, height: 2400, label: 'Large', description: '4000 × 2400' },
+  extraLarge: { width: 4000, height: 2400, label: 'Extra Large', description: '4000 × 2400' },
+  large: { width: 3000, height: 1800, label: 'Large', description: '3000 × 1800' },
   medium: { width: 2000, height: 1200, label: 'Medium', description: '2000 × 1200' },
   small: { width: 1320, height: 792, label: 'Small', description: '1320 × 792' }
 };
@@ -2705,11 +2706,18 @@ export default function TopographicMapCreator() {
                 <label className="text-xs font-bold text-slate-300 block mb-3">Map Size</label>
                 <div className="flex flex-col gap-3">
                   <button
+                    onClick={() => handleSizeSelection('extraLarge')}
+                    className="px-6 py-4 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-amber-500/25"
+                  >
+                    <div className="text-lg font-bold">Extra Large</div>
+                    <div className="text-amber-200 text-sm">4000 × 2400 pixels</div>
+                  </button>
+                  <button
                     onClick={() => handleSizeSelection('large')}
                     className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-emerald-500/25"
                   >
                     <div className="text-lg font-bold">Large</div>
-                    <div className="text-emerald-200 text-sm">4000 × 2400 pixels</div>
+                    <div className="text-emerald-200 text-sm">3000 × 1800 pixels</div>
                   </button>
                   <button
                     onClick={() => handleSizeSelection('medium')}
