@@ -2361,7 +2361,7 @@ export default function TopographicMapCreator() {
 
         {/* Bottom Left - Legend */}
         <div
-          className="fixed bottom-3 left-3 z-50 bg-slate-800/80 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50"
+          className="fixed bottom-3 left-3 z-50 bg-slate-800/50 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50"
           onMouseEnter={() => setHoveredButton('legend')}
           onMouseLeave={() => setHoveredButton(null)}
           style={{ cursor: helpMode ? 'help' : 'default', width: 'fit-content' }}
@@ -2402,7 +2402,7 @@ export default function TopographicMapCreator() {
               top: `${cursorScreenPos.y + 20}px`
             }}
           >
-            <div className="bg-cyan-600/80 backdrop-blur px-3 py-1.5 rounded border border-cyan-400 text-white font-mono text-sm shadow-lg">
+            <div className="bg-cyan-600/50 backdrop-blur px-3 py-1.5 rounded border border-cyan-400 text-white font-mono text-sm shadow-lg">
               {cursorElevation}m
             </div>
           </div>
