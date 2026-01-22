@@ -251,8 +251,6 @@ export default function TopographicMapCreator() {
   const contourRef = useRef(null);
   const containerRef = useRef(null);
   const elevationDataRef = useRef([]);
-  const biomeMapRef = useRef([]);
-  const biomeBlendMapRef = useRef(null);
   const isDrawingRef = useRef(false);
   const flattenElevationRef = useRef(null);
   const drawModeRef = useRef(DrawMode.PAINT_LAND);
@@ -300,7 +298,6 @@ export default function TopographicMapCreator() {
   const [labelDragOffset, setLabelDragOffset] = useState({ x: 0, y: 0 });
   const [justDraggedLabel, setJustDraggedLabel] = useState(false);
   const isEditingLabelEdgeRef = useRef(false);
-  const [generationProgress, setGenerationProgress] = useState(false);
   const [drawingContours, setDrawingContours] = useState(false);
   const [showSizeModal, setShowSizeModal] = useState(true);
   const [showControlsModal, setShowControlsModal] = useState(false);
@@ -311,25 +308,6 @@ export default function TopographicMapCreator() {
   const [canvasWidth, setCanvasWidth] = useState(CANVAS_WIDTH);
   const [canvasHeight, setCanvasHeight] = useState(CANVAS_HEIGHT);
   const [selectedBiomes, setSelectedBiomes] = useState([BIOME_TYPES.TEMPERATE]);
-
-  // Random label names
-  const randomLabelNames = [
-    'Mount Everest', 'K2', 'Denali', 'Kilimanjaro', 'Matterhorn',
-    'Rocky Peaks', 'Alpine Summit', 'Crystal Ridge', 'Thunder Peak', 'Dragon Peak',
-    'Sahara Desert', 'Great Dunes', 'Sand Valley', 'Golden Basin', 'Dust Plains',
-    'Amazon River', 'Crystal Stream', 'Flowing Delta', 'Blue Canyon', 'River Valley',
-    'Mystic Lake', 'Deep Waters', 'Azure Basin', 'Mirror Lake', 'Twilight Pool',
-    'Emerald Forest', 'Dense Woodland', 'Ancient Grove', 'Pine Ridge', 'Shadow Woods'
-  ];
-
-  // Helper function to get appropriate labels based on elevation
-  const getLabelForElevation = (elevation) => {
-    if (elevation > 500) return ['Mount Everest', 'K2', 'Denali', 'Kilimanjaro', 'Matterhorn', 'Rocky Peaks', 'Alpine Summit', 'Crystal Ridge', 'Thunder Peak', 'Dragon Peak'];
-    else if (elevation > 200) return ['Rocky Peaks', 'Alpine Summit', 'Crystal Ridge', 'Pine Ridge', 'Emerald Forest'];
-    else if (elevation > 50) return ['Emerald Forest', 'Dense Woodland', 'Ancient Grove', 'Pine Ridge', 'Shadow Woods', 'River Valley', 'Blue Canyon'];
-    else if (elevation > 0) return ['River Valley', 'Blue Canyon', 'Flowing Delta', 'Golden Basin', 'Dust Plains', 'Mystic Lake', 'Deep Waters'];
-    else return ['Sahara Desert', 'Great Dunes', 'Sand Valley', 'Amazon River', 'Crystal Stream', 'Mystic Lake', 'Azure Basin', 'Mirror Lake', 'Twilight Pool'];
-  };
 
   // Handle map size selection
   const handleSizeSelection = useCallback((size) => {
@@ -481,9 +459,7 @@ export default function TopographicMapCreator() {
 
   const updateElevationData = useCallback((centerX, centerY) => {
     const data = elevationDataRef.current;
-    const blendMap = biomeBlendMapRef.current;
     const radius = brushSize / 2;
-    const targetBiome = drawingBiomeRef.current;
 
     if (brushShape === 'circle') {
       for (let dy = -radius; dy <= radius; dy++) {
@@ -506,43 +482,6 @@ export default function TopographicMapCreator() {
                 if (flattenElevationRef.current !== null) {
                   const targetElev = flattenElevationRef.current;
                   data[py][px] = currentElev + (targetElev - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
-                }
-              }
-
-              // Update biome blend map when painting with a specific biome
-              if (targetBiome && blendMap && blendMap[py]?.[px]) {
-                const current = blendMap[py][px];
-                const blendStrength = falloff * 0.3; // Softer blending for biomes
-
-                // Determine current dominant biome
-                const currentBiome1 = current.biome1;
-                const currentBiome2 = current.biome2;
-                const currentBlend = current.blend;
-
-                // Blend toward the target biome
-                if (currentBiome1 === targetBiome) {
-                  // Target is already biome1, reduce blend toward biome2
-                  blendMap[py][px] = {
-                    biome1: currentBiome1,
-                    biome2: currentBiome2,
-                    blend: Math.max(0, currentBlend - blendStrength)
-                  };
-                } else if (currentBiome2 === targetBiome) {
-                  // Target is biome2, increase blend toward it
-                  blendMap[py][px] = {
-                    biome1: currentBiome1,
-                    biome2: currentBiome2,
-                    blend: Math.min(1, currentBlend + blendStrength)
-                  };
-                } else {
-                  // Neither current biome is the target, transition to target
-                  // Keep current dominant biome as biome1, target as biome2
-                  const dominantBiome = currentBlend < 0.5 ? currentBiome1 : currentBiome2;
-                  blendMap[py][px] = {
-                    biome1: dominantBiome,
-                    biome2: targetBiome,
-                    blend: Math.min(1, blendStrength * 2)
-                  };
                 }
               }
             }
@@ -572,43 +511,6 @@ export default function TopographicMapCreator() {
                 data[py][px] = currentElev + (targetElev - currentElev) * falloff * BRUSH_CONSTANTS.ELEVATION_BLEND;
               }
             }
-
-            // Update biome blend map when painting with a specific biome
-            if (targetBiome && blendMap && blendMap[py]?.[px]) {
-              const current = blendMap[py][px];
-              const blendStrength = falloff * 0.3; // Softer blending for biomes
-
-              // Determine current dominant biome
-              const currentBiome1 = current.biome1;
-              const currentBiome2 = current.biome2;
-              const currentBlend = current.blend;
-
-              // Blend toward the target biome
-              if (currentBiome1 === targetBiome) {
-                // Target is already biome1, reduce blend toward biome2
-                blendMap[py][px] = {
-                  biome1: currentBiome1,
-                  biome2: currentBiome2,
-                  blend: Math.max(0, currentBlend - blendStrength)
-                };
-              } else if (currentBiome2 === targetBiome) {
-                // Target is biome2, increase blend toward it
-                blendMap[py][px] = {
-                  biome1: currentBiome1,
-                  biome2: currentBiome2,
-                  blend: Math.min(1, currentBlend + blendStrength)
-                };
-              } else {
-                // Neither current biome is the target, transition to target
-                // Keep current dominant biome as biome1, target as biome2
-                const dominantBiome = currentBlend < 0.5 ? currentBiome1 : currentBiome2;
-                blendMap[py][px] = {
-                  biome1: dominantBiome,
-                  biome2: targetBiome,
-                  blend: Math.min(1, blendStrength * 2)
-                };
-              }
-            }
           }
         }
       }
@@ -619,7 +521,6 @@ export default function TopographicMapCreator() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const data = elevationDataRef.current;
-    const blendMap = biomeBlendMapRef.current;
     const radius = brushSize / 2 + 2;
 
     for (let dy = -radius; dy <= radius; dy++) {
@@ -628,13 +529,7 @@ export default function TopographicMapCreator() {
         const py = Math.floor(centerY + dy);
         if (py >= 0 && py < data.length && px >= 0 && px < data[0].length) {
           const elev = data[py][px];
-          let color;
-          // Always use blend map if available for smooth transitions
-          if (blendMap && blendMap[py]?.[px]) {
-            color = getBlendedElevationColor(elev, blendMap[py][px]);
-          } else {
-            color = getElevationColor(elev, selectedBiomes[0]);
-          }
+          const color = getElevationColor(elev, selectedBiomes[0]);
           ctx.fillStyle = color;
           ctx.fillRect(px, py, 1, 1);
         }
@@ -721,23 +616,13 @@ export default function TopographicMapCreator() {
 
   const saveStateForUndo = useCallback(() => {
     const currentElevationData = elevationDataRef.current;
-    const currentBlendMap = biomeBlendMapRef.current;
 
     // Deep copy the elevation data
     const elevationCopy = currentElevationData.map(row => [...row]);
 
-    // Deep copy the blend map
-    let blendMapCopy = null;
-    if (currentBlendMap) {
-      blendMapCopy = currentBlendMap.map(row =>
-        row.map(cell => ({ ...cell }))
-      );
-    }
-
     // Add to history, keeping only last 3 states
     undoHistoryRef.current.push({
-      elevationData: elevationCopy,
-      blendMap: blendMapCopy
+      elevationData: elevationCopy
     });
 
     // Keep only last 3 states
@@ -757,7 +642,6 @@ export default function TopographicMapCreator() {
 
     // Restore the state
     elevationDataRef.current = previousState.elevationData;
-    biomeBlendMapRef.current = previousState.blendMap;
 
     // Redraw the entire canvas
     const canvas = canvasRef.current;
@@ -765,19 +649,11 @@ export default function TopographicMapCreator() {
 
     const ctx = canvas.getContext('2d');
     const data = elevationDataRef.current;
-    const blendMap = biomeBlendMapRef.current;
 
     for (let y = 0; y < data.length; y++) {
       for (let x = 0; x < data[0].length; x++) {
         const elev = data[y][x];
-        let color;
-
-        if (blendMap && blendMap[y]?.[x]) {
-          color = getBlendedElevationColor(elev, blendMap[y][x]);
-        } else {
-          color = getElevationColor(elev, selectedBiomes[0]);
-        }
-
+        const color = getElevationColor(elev, selectedBiomes[0]);
         ctx.fillStyle = color;
         ctx.fillRect(x, y, 1, 1);
       }
@@ -2304,20 +2180,6 @@ export default function TopographicMapCreator() {
                   <div className="w-12 h-12 border-4 border-slate-600 border-t-blue-500 rounded-full animate-spin"></div>
                 </div>
                 <p className="text-slate-100 font-medium">Drawing Topography...</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Terrain Generation Progress Box */}
-        {generatingTerrain && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-slate-800 border border-slate-600 rounded-lg p-8 shadow-2xl max-w-sm">
-              <div className="text-center">
-                <div className="mb-4 flex justify-center">
-                  <div className="w-12 h-12 border-4 border-slate-600 border-t-violet-500 rounded-full animate-spin"></div>
-                </div>
-                <p className="text-slate-100 font-medium">Creating Terrain...</p>
               </div>
             </div>
           </div>
