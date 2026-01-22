@@ -421,86 +421,92 @@ const seededRandom = (s) => {
 
 const generatePerlinNoise = (width, height, seedValue) => {
   const data = [];
-  const octaves = 5;
-  const persistence = 0.5;
-  const lacunarity = 2.0;
-  const scale = 0.002;
-  const noiseCache = {};
 
-  const getNoise = (x, y, octave) => {
-    const key = `${x},${y},${octave}`;
-    if (noiseCache[key] === undefined) {
-      noiseCache[key] = seededRandom(seedValue + x * 12.9898 + y * 78.233 + octave * 43758.5453);
-    }
-    return noiseCache[key];
+  // Simple noise function using seeded random
+  const noise = (x, y) => {
+    return seededRandom(seedValue + x * 12.9898 + y * 78.233);
   };
 
+  // Smooth interpolation
+  const smoothstep = (t) => t * t * (3 - 2 * t);
+
+  // Interpolated noise
+  const interpolatedNoise = (x, y) => {
+    const intX = Math.floor(x);
+    const intY = Math.floor(y);
+    const fracX = x - intX;
+    const fracY = y - intY;
+
+    const v1 = noise(intX, intY);
+    const v2 = noise(intX + 1, intY);
+    const v3 = noise(intX, intY + 1);
+    const v4 = noise(intX + 1, intY + 1);
+
+    const i1 = v1 * (1 - smoothstep(fracX)) + v2 * smoothstep(fracX);
+    const i2 = v3 * (1 - smoothstep(fracX)) + v4 * smoothstep(fracX);
+
+    return i1 * (1 - smoothstep(fracY)) + i2 * smoothstep(fracY);
+  };
+
+  // Generate multi-octave Perlin noise
   for (let y = 0; y < height; y++) {
     data[y] = [];
     for (let x = 0; x < width; x++) {
-      let elevation = 0;
+      let value = 0;
       let amplitude = 1;
-      let frequency = 1;
+      let frequency = 0.005;
       let maxValue = 0;
 
-      for (let o = 0; o < octaves; o++) {
-        const sampleX = x * scale * frequency;
-        const sampleY = y * scale * frequency;
-
-        const x0 = Math.floor(sampleX);
-        const x1 = x0 + 1;
-        const y0 = Math.floor(sampleY);
-        const y1 = y0 + 1;
-
-        const n00 = getNoise(x0, y0, o);
-        const n10 = getNoise(x1, y0, o);
-        const n01 = getNoise(x0, y1, o);
-        const n11 = getNoise(x1, y1, o);
-
-        const fx = sampleX - x0;
-        const fy = sampleY - y0;
-        const sx = fx * fx * (3 - 2 * fx);
-        const sy = fy * fy * (3 - 2 * fy);
-
-        const i1 = n00 * (1 - sx) + n10 * sx;
-        const i2 = n01 * (1 - sx) + n11 * sx;
-        const noise = i1 * (1 - sy) + i2 * sy;
-
-        elevation += noise * amplitude;
+      // 6 octaves for varied terrain
+      for (let i = 0; i < 6; i++) {
+        value += interpolatedNoise(x * frequency, y * frequency) * amplitude;
         maxValue += amplitude;
-
-        amplitude *= persistence;
-        frequency *= lacunarity;
+        amplitude *= 0.5;
+        frequency *= 2;
       }
 
-      elevation = (elevation / maxValue) * 2 - 1;
+      // Normalize to -1 to 1
+      value = value / maxValue;
+      value = value * 2 - 1;
 
+      // Apply island falloff from edges
       const centerX = width / 2;
       const centerY = height / 2;
-      const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-      const maxDist = Math.sqrt(centerX ** 2 + centerY ** 2);
-      const falloff = 1 - ((distFromCenter / maxDist) ** 2.5) * 0.2;
+      const distX = Math.abs(x - centerX) / centerX;
+      const distY = Math.abs(y - centerY) / centerY;
+      const dist = Math.max(distX, distY);
+      const falloff = Math.pow(1 - dist, 2);
 
-      elevation *= falloff;
-      elevation -= 0.1;
+      value = value * falloff;
 
-      if (elevation < 0) {
-        elevation = elevation * 300;
+      // Convert to elevation values
+      if (value < 0) {
+        // Ocean depths: -600 to 0
+        data[y][x] = value * 600;
       } else {
-        elevation = Math.pow(elevation, 0.7) * 800;
+        // Land heights: 0 to 1000, with exponential scaling for mountains
+        data[y][x] = Math.pow(value, 0.8) * 1000;
       }
-
-      data[y][x] = elevation;
     }
   }
 
-  // Smoothing pass
-  const smoothed = data.map(row => [...row]);
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      if (data[y][x] > 0) {
-        const avg = (data[y - 1][x] + data[y + 1][x] + data[y][x - 1] + data[y][x + 1]) / 4;
-        smoothed[y][x] = data[y][x] * (1 - BRUSH_CONSTANTS.SMOOTH_AMOUNT) + avg * BRUSH_CONSTANTS.SMOOTH_AMOUNT;
+  // Light smoothing pass
+  const smoothed = [];
+  for (let y = 0; y < height; y++) {
+    smoothed[y] = [];
+    for (let x = 0; x < width; x++) {
+      if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
+        smoothed[y][x] = data[y][x];
+      } else {
+        const neighbors = [
+          data[y][x],
+          data[y - 1][x],
+          data[y + 1][x],
+          data[y][x - 1],
+          data[y][x + 1]
+        ];
+        const avg = neighbors.reduce((a, b) => a + b, 0) / neighbors.length;
+        smoothed[y][x] = data[y][x] * 0.7 + avg * 0.3;
       }
     }
   }
