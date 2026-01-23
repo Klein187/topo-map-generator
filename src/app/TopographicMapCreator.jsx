@@ -242,7 +242,7 @@ const getElevationColor = (elevation, biome = BIOME_TYPES.TEMPERATE) => {
 };
 
 // Improved random terrain generation with proper Perlin-style noise
-const generateRandomTerrain = (width, height) => {
+const generateRandomTerrain = (width, height, oceanPercentage = 50) => {
   const data = [];
   const seed = Math.random() * 100000;
 
@@ -316,7 +316,11 @@ const generateRandomTerrain = (width, height) => {
       const falloff = 1 - ((distFromCenter / maxDist) ** 2.5) * 0.2;
 
       elevation *= falloff;
-      elevation -= 0.1; // Lower sea level slightly
+
+      // Adjust sea level based on ocean percentage
+      // 0% ocean = +0.2 (more land), 50% ocean = -0.1 (balanced), 100% ocean = -0.4 (more ocean)
+      const seaLevelAdjustment = 0.2 - (oceanPercentage / 100) * 0.6;
+      elevation += seaLevelAdjustment;
 
       // Scale to elevation range
       if (elevation < 0) {
@@ -378,6 +382,7 @@ export default function TopographicMapCreator() {
   const [drawMode, setDrawMode] = useState(DrawMode.PAINT_LAND);
   const [oceanDepth, setOceanDepth] = useState(-100);
   const [landElevation, setLandElevation] = useState(100);
+  const [oceanPercentage, setOceanPercentage] = useState(50);
   const [canUndo, setCanUndo] = useState(false);
   const [previousBrushSize, setPreviousBrushSize] = useState(BRUSH_CONSTANTS.DEFAULT_SIZE);
   const [brushOutlinePos, setBrushOutlinePos] = useState({ x: 0, y: 0, visible: false });
@@ -1056,7 +1061,7 @@ export default function TopographicMapCreator() {
     setCanUndo(false);
 
     // Generate random terrain
-    const newElevationData = generateRandomTerrain(canvasWidth, canvasHeight);
+    const newElevationData = generateRandomTerrain(canvasWidth, canvasHeight, oceanPercentage);
     elevationDataRef.current = newElevationData;
 
     // Draw to canvas
@@ -1073,7 +1078,7 @@ export default function TopographicMapCreator() {
     if (showContours) {
       setTimeout(() => drawContourLines(), 50);
     }
-  }, [canvasWidth, canvasHeight, selectedBiomes, showContours, drawContourLines]);
+  }, [canvasWidth, canvasHeight, oceanPercentage, selectedBiomes, showContours, drawContourLines]);
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1463,9 +1468,9 @@ export default function TopographicMapCreator() {
                   <Shuffle size={14} /> Random
                 </button>
                 {hoveredButton === 'random' && (
-                  <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                  <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
                     <div className="text-slate-100 font-medium text-sm">Random Terrain</div>
-                    <div className="text-slate-400 text-xs">Generate random terrain with mountains and oceans.</div>
+                    <div className="text-slate-400 text-xs">Generate random terrain with mountains and oceans. Use the Ocean/Land slider below to control the balance between water and landmasses.</div>
                   </div>
                 )}
               </div>
@@ -1528,6 +1533,33 @@ export default function TopographicMapCreator() {
                 <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
                   <div className="text-slate-100 font-medium text-sm">New Map</div>
                   <div className="text-slate-400 text-xs">Start fresh with new biome and size selection.</div>
+                </div>
+              )}
+            </div>
+
+            {/* Ocean to Land Percentage Slider */}
+            <div
+              className="relative"
+              onMouseEnter={() => setHoveredButton('oceanPercentage')}
+              onMouseLeave={() => setHoveredButton(null)}
+              style={{ cursor: helpMode ? 'help' : 'default' }}
+            >
+              <label className="text-xs font-bold text-slate-300 block mb-1">
+                Ocean: {oceanPercentage}% | Land: {100 - oceanPercentage}%
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={oceanPercentage}
+                onChange={(e) => setOceanPercentage(Number(e.target.value))}
+                className="w-full h-2 bg-slate-600 rounded"
+                style={{ cursor: helpMode ? 'help' : 'pointer' }}
+              />
+              {hoveredButton === 'oceanPercentage' && (
+                <div className="absolute left-0 top-full mt-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
+                  <div className="text-slate-100 font-medium text-sm">Ocean/Land Balance</div>
+                  <div className="text-slate-400 text-xs">Adjust the ratio of ocean to land when generating random terrain. Move left for more land, right for more ocean.</div>
                 </div>
               )}
             </div>
