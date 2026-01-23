@@ -122,31 +122,34 @@ const BIOME_COLORS = {
     [Infinity, '#f5f5f4']
   ],
   [BIOME_TYPES.TROPICAL]: [
-    [-600, '#021a14'],  // Abyssal trench - very dark teal
-    [-500, '#032518'],  // Deep trench - dark teal
-    [-400, '#03301f'],  // Deep trench
-    [-350, '#043d28'],  // Very deep ocean
-    [-300, '#064e3b'],  // Very deep ocean
-    [-250, '#065740'],  // Deep ocean
-    [-200, '#065f46'],  // Deep ocean
-    [-150, '#047857'],  // Ocean depth
-    [-100, '#059669'],  // Ocean depth
-    [-75, '#0d9488'],   // Mid ocean
-    [-50, '#0891b2'],   // Ocean
-    [-25, '#22d3ee'],   // Shallow water
-    [0, '#67e8f9'],     // Coastline
-    [25, '#a7f3d0'],
-    [50, '#6ee7b7'],
-    [100, '#34d399'],
-    [150, '#10b981'],
-    [200, '#059669'],
-    [250, '#047857'],
-    [300, '#065f46'],
-    [350, '#064e3b'],
-    [400, '#166534'],
-    [450, '#14532d'],
-    [500, '#365314'],
-    [550, '#3f6212'],
+    [-600, '#0a1628'],  // Abyssal trench - very dark blue
+    [-500, '#0c1e3d'],  // Deep trench - dark blue
+    [-400, '#0f2952'],  // Deep trench
+    [-350, '#123366'],  // Very deep ocean
+    [-300, '#1a4480'],  // Very deep ocean
+    [-250, '#1d5a9e'],  // Deep ocean
+    [-200, '#2563eb'],  // Deep ocean - vivid blue
+    [-150, '#3b82f6'],  // Ocean depth
+    [-100, '#60a5fa'],  // Ocean depth
+    [-75, '#7dd3fc'],   // Mid ocean
+    [-50, '#38bdf8'],   // Ocean - bright cyan
+    [-25, '#22d3ee'],   // Shallow water - turquoise
+    [0, '#e0f2fe'],     // Coastline - pale blue wash
+    [15, '#fefce8'],    // Wet sand - very light
+    [35, '#fef9c3'],    // Light sand
+    [55, '#fef08a'],    // Beach - pale gold
+    [75, '#fde047'],    // Beach - golden sand
+    [100, '#facc15'],   // Upper beach - warm sand
+    [130, '#6ee7b7'],   // Coastal grass - mint green
+    [170, '#34d399'],   // Palm zone - emerald
+    [220, '#10b981'],   // Jungle edge - teal-green
+    [280, '#059669'],   // Dense jungle - deep emerald
+    [350, '#047857'],   // Deep jungle - dark emerald
+    [420, '#065f46'],   // Highland jungle - very dark
+    [500, '#064e3b'],   // Mountain forest - darkest green
+    [600, '#4a5568'],   // Rocky slopes - slate gray
+    [700, '#718096'],   // Mountain rock - gray
+    [800, '#a0aec0'],   // Mountain peak - light gray
     [600, '#4d7c0f'],
     [650, '#78350f'],
     [700, '#57534e'],
@@ -329,14 +332,15 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       falloffStrength: 0.15
     },
     [BIOME_TYPES.TROPICAL]: {
-      octaves: 7,
-      persistence: 0.55,
-      lacunarity: 1.8,
-      scale: 0.0018,
-      elevationPower: 0.65,
-      maxElevation: 700,
-      falloffPower: 3.0,
-      falloffStrength: 0.25
+      octaves: 8,
+      persistence: 0.5,
+      lacunarity: 2.2,
+      scale: 0.003,
+      elevationPower: 0.5,
+      maxElevation: 500,
+      falloffPower: 2.5,
+      falloffStrength: 0.4,
+      islandMode: true
     },
     [BIOME_TYPES.ARCTIC]: {
       octaves: 5,
@@ -474,6 +478,7 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       let maxElevation = 0;
       let falloffPower = 0;
       let falloffStrength = 0;
+      let islandModeWeight = 0;
 
       biomeWeights.forEach(({ biome, weight }) => {
         const config = biomeConfigs[biome];
@@ -481,6 +486,7 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
         maxElevation += config.maxElevation * weight;
         falloffPower += config.falloffPower * weight;
         falloffStrength += config.falloffStrength * weight;
+        if (config.islandMode) islandModeWeight += weight;
       });
 
       // Add gentle center falloff for island effect
@@ -491,6 +497,41 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       const falloff = 1 - ((distFromCenter / maxDist) ** falloffPower) * falloffStrength;
 
       elevation *= falloff;
+
+      // Island mode: create archipelago effect with scattered islands
+      if (islandModeWeight > 0) {
+        // Add smooth high-frequency noise to break up land into islands
+        const islandScale = 0.006;
+
+        // Use smooth interpolated noise (same technique as main terrain)
+        const getIslandNoise = (sx, sy, octave) => {
+          const x0 = Math.floor(sx);
+          const x1 = x0 + 1;
+          const y0 = Math.floor(sy);
+          const y1 = y0 + 1;
+          const n00 = getNoise(x0, y0, octave);
+          const n10 = getNoise(x1, y0, octave);
+          const n01 = getNoise(x0, y1, octave);
+          const n11 = getNoise(x1, y1, octave);
+          const fx = sx - x0;
+          const fy = sy - y0;
+          const sfx = smoothstep(fx);
+          const sfy = smoothstep(fy);
+          const i1 = n00 * (1 - sfx) + n10 * sfx;
+          const i2 = n01 * (1 - sfx) + n11 * sfx;
+          return i1 * (1 - sfy) + i2 * sfy;
+        };
+
+        const islandNoise1 = getIslandNoise(x * islandScale, y * islandScale, 50);
+        const islandNoise2 = getIslandNoise(x * islandScale * 2.5, y * islandScale * 2.5, 51);
+        const islandNoise = (islandNoise1 + islandNoise2 * 0.4) / 1.4;
+
+        // Create island clusters - lower areas become ocean
+        const islandThreshold = 0.4;
+        if (islandNoise < islandThreshold) {
+          elevation -= (islandThreshold - islandNoise) * 1.2 * islandModeWeight;
+        }
+      }
 
       // Adjust sea level based on ocean percentage
       // 0% ocean = +0.2 (more land), 50% ocean = -0.1 (balanced), 100% ocean = -0.4 (more ocean)
