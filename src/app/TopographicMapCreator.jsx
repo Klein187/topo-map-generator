@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, HelpCircle } from 'lucide-react';
+import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map } from 'lucide-react';
 
 // ============================================================================
 // CONSTANTS
@@ -585,7 +585,6 @@ export default function TopographicMapCreator() {
   const [drawingContours, setDrawingContours] = useState(false);
   const [showSizeModal, setShowSizeModal] = useState(true);
   const [showControlsModal, setShowControlsModal] = useState(false);
-  const [helpMode, setHelpMode] = useState(false);
   const [hoveredButton, setHoveredButton] = useState(null);
   const [mapSize, setMapSize] = useState(null);
   const [drawingBiome, setDrawingBiome] = useState(null); // null means use blend, or specific biome
@@ -1455,7 +1454,7 @@ export default function TopographicMapCreator() {
   // ============================================================================
 
   return (
-    <div className="fixed inset-0 w-full h-full overflow-hidden bg-black" style={{ cursor: helpMode ? 'help' : 'default' }}>
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-black">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Merriweather:wght@300;400&display=swap');
         body { font-family: 'Merriweather', serif; }
@@ -1466,7 +1465,7 @@ export default function TopographicMapCreator() {
         ref={containerRef}
         className="absolute inset-0 w-full h-full"
         style={{
-          cursor: helpMode ? 'help' : (isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair')),
+          cursor: isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair'),
           touchAction: 'none',
           overflow: 'hidden'
         }}
@@ -1706,14 +1705,13 @@ export default function TopographicMapCreator() {
                 <button
                   onClick={generateRandom}
                   className="w-full px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded font-medium text-sm flex items-center justify-center gap-1"
-                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
                 >
                   <Shuffle size={14} /> Random
                 </button>
                 {hoveredButton === 'random' && (
                   <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
                     <div className="text-slate-100 font-medium text-sm">Random Terrain</div>
-                    <div className="text-slate-400 text-xs">Generate random terrain with mountains and oceans. Use the Ocean/Land slider below to control the balance between water and landmasses.</div>
+                    <div className="text-slate-400 text-xs">Generate random terrain with mountains and oceans.</div>
                   </div>
                 )}
               </div>
@@ -1725,14 +1723,13 @@ export default function TopographicMapCreator() {
                 <button
                   onClick={clearCanvas}
                   className="w-full px-3 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 rounded font-medium text-sm flex items-center justify-center gap-1"
-                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
                 >
                   <Trash2 size={14} /> Clear
                 </button>
                 {hoveredButton === 'clear' && (
                   <div className="absolute left-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                     <div className="text-slate-100 font-medium text-sm">Clear Canvas</div>
-                    <div className="text-slate-400 text-xs">Erase all terrain and start with a blank ocean map.</div>
+                    <div className="text-slate-400 text-xs">Erase all terrain and start fresh.</div>
                   </div>
                 )}
               </div>
@@ -1744,14 +1741,13 @@ export default function TopographicMapCreator() {
                 <button
                   onClick={() => setShowDownloadModal(true)}
                   className="w-full px-3 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 rounded font-medium text-sm flex items-center justify-center gap-1"
-                  style={{ cursor: helpMode ? 'help' : 'pointer' }}
                 >
                   <Download size={14} /> Download
                 </button>
                 {hoveredButton === 'download' && (
                   <div className="absolute right-0 top-12 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                     <div className="text-slate-100 font-medium text-sm">Download Map</div>
-                    <div className="text-slate-400 text-xs">Save your map as a PNG image file.</div>
+                    <div className="text-slate-400 text-xs">Save your map as a PNG image.</div>
                   </div>
                 )}
               </div>
@@ -1768,7 +1764,6 @@ export default function TopographicMapCreator() {
                   setShowSizeModal(true);
                 }}
                 className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium text-sm flex items-center justify-center gap-1"
-                style={{ cursor: helpMode ? 'help' : 'pointer' }}
               >
                 <Map size={14} /> New Map
               </button>
@@ -1783,9 +1778,8 @@ export default function TopographicMapCreator() {
             {/* Ocean to Land Percentage Slider */}
             <div
               className="relative"
-              onMouseEnter={() => setHoveredButton('oceanPercentage')}
+              onMouseEnter={() => setHoveredButton('oceanSlider')}
               onMouseLeave={() => setHoveredButton(null)}
-              style={{ cursor: helpMode ? 'help' : 'default' }}
             >
               <label className="text-xs font-bold text-slate-300 block mb-1">
                 Ocean: {oceanPercentage}% | Land: {100 - oceanPercentage}%
@@ -1797,12 +1791,11 @@ export default function TopographicMapCreator() {
                 value={oceanPercentage}
                 onChange={(e) => setOceanPercentage(Number(e.target.value))}
                 className="w-full h-2 bg-slate-600 rounded"
-                style={{ cursor: helpMode ? 'help' : 'pointer' }}
               />
-              {hoveredButton === 'oceanPercentage' && (
+              {hoveredButton === 'oceanSlider' && (
                 <div className="absolute left-0 top-full mt-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-56 z-50 pointer-events-none">
                   <div className="text-slate-100 font-medium text-sm">Ocean/Land Balance</div>
-                  <div className="text-slate-400 text-xs">Adjust the ratio of ocean to land when generating random terrain. Move left for more land, right for more ocean.</div>
+                  <div className="text-slate-400 text-xs">Adjust the ratio of ocean to land when generating random terrain.</div>
                 </div>
               )}
             </div>
@@ -1820,7 +1813,6 @@ export default function TopographicMapCreator() {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => { setIsPanMode(!isPanMode); setIsAddingLabel(false); }}
               className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${isPanMode ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
               title="Pan"
             >
               <Move size={18} />
@@ -1841,14 +1833,13 @@ export default function TopographicMapCreator() {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => handleZoom(0.2)}
               className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
             >
               <ZoomIn size={18} />
             </button>
             {hoveredButton === 'zoomIn' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Zoom In</div>
-                <div className="text-slate-400 text-xs">Increase the zoom level to see more detail.</div>
+                <div className="text-slate-400 text-xs">Increase zoom to see more detail.</div>
               </div>
             )}
           </div>
@@ -1861,14 +1852,13 @@ export default function TopographicMapCreator() {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => handleZoom(-0.2)}
               className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
             >
               <ZoomOut size={18} />
             </button>
             {hoveredButton === 'zoomOut' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Zoom Out</div>
-                <div className="text-slate-400 text-xs">Decrease the zoom level to see more of the map.</div>
+                <div className="text-slate-400 text-xs">Decrease zoom to see more of the map.</div>
               </div>
             )}
           </div>
@@ -1882,14 +1872,14 @@ export default function TopographicMapCreator() {
               onClick={undo}
               disabled={!canUndo}
               className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ cursor: helpMode ? 'help' : (!canUndo ? 'not-allowed' : 'pointer') }}
+              style={{ cursor: !canUndo ? 'not-allowed' : 'pointer' }}
             >
               <Undo size={18} />
             </button>
             {hoveredButton === 'undo' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Undo</div>
-                <div className="text-slate-400 text-xs">Undo your last drawing action (up to 3 actions).</div>
+                <div className="text-slate-400 text-xs">Undo your last drawing action.</div>
               </div>
             )}
           </div>
@@ -1913,14 +1903,13 @@ export default function TopographicMapCreator() {
                 }
               }}
               className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showContours ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
             >
               <Layers size={18} />
             </button>
             {hoveredButton === 'contours' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Contour Lines</div>
-                <div className="text-slate-400 text-xs">Toggle topographic contour lines showing elevation changes.</div>
+                <div className="text-slate-400 text-xs">Toggle topographic contour lines.</div>
               </div>
             )}
           </div>
@@ -1933,14 +1922,13 @@ export default function TopographicMapCreator() {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={handleToggleElevationNumbers}
               className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showElevationNumbers ? 'bg-cyan-600 border-cyan-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
             >
               <Hash size={18} />
             </button>
             {hoveredButton === 'elevation' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Elevation Display</div>
-                <div className="text-slate-400 text-xs">Show elevation in meters at your cursor position.</div>
+                <div className="text-slate-400 text-xs">Show elevation at cursor position.</div>
               </div>
             )}
           </div>
@@ -1957,7 +1945,6 @@ export default function TopographicMapCreator() {
                   ? 'bg-violet-600 border-violet-500 text-white'
                   : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
               }`}
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
               title={isAddingLabel ? 'Cancel Labeling' : 'Add Label'}
             >
               <MapPin size={18} />
@@ -1965,32 +1952,7 @@ export default function TopographicMapCreator() {
             {hoveredButton === 'label' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Add Labels</div>
-                <div className="text-slate-400 text-xs">Click on the map to add place names and annotations.</div>
-              </div>
-            )}
-          </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('help')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => setHelpMode(!helpMode)}
-              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-all ${
-                helpMode
-                  ? 'bg-amber-600 border-amber-500 text-white'
-                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
-              }`}
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
-              title="Help Mode"
-            >
-              <HelpCircle size={18} />
-            </button>
-            {hoveredButton === 'help' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Help Mode</div>
-                <div className="text-slate-400 text-xs">Hover over buttons to see what they do. Click again to exit.</div>
+                <div className="text-slate-400 text-xs">Click on the map to add place names.</div>
               </div>
             )}
           </div>
@@ -1999,14 +1961,13 @@ export default function TopographicMapCreator() {
             className="relative w-32 p-2 bg-slate-700/50 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('brushSize')}
             onMouseLeave={() => setHoveredButton(null)}
-            style={{ cursor: helpMode ? 'help' : 'default' }}
           >
             <label className="text-xs font-bold text-slate-300 block mb-1">Size: {brushSize}px</label>
-            <input type="range" min={BRUSH_CONSTANTS.MIN_SIZE} max={BRUSH_CONSTANTS.MAX_SIZE} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-full h-2 bg-slate-600 rounded" style={{ cursor: helpMode ? 'help' : 'pointer' }} />
+            <input type="range" min={BRUSH_CONSTANTS.MIN_SIZE} max={BRUSH_CONSTANTS.MAX_SIZE} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-full h-2 bg-slate-600 rounded" />
             {hoveredButton === 'brushSize' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Brush Size</div>
-                <div className="text-slate-400 text-xs">Adjust how large your terrain brush is when painting.</div>
+                <div className="text-slate-400 text-xs">Adjust how large your terrain brush is.</div>
               </div>
             )}
           </div>
@@ -2015,12 +1976,11 @@ export default function TopographicMapCreator() {
             className="relative w-28 p-2 bg-slate-700/50 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('brushShape')}
             onMouseLeave={() => setHoveredButton(null)}
-            style={{ cursor: helpMode ? 'help' : 'default' }}
           >
             <label className="text-xs font-bold text-slate-300 block mb-1">Shape</label>
             <div className="flex gap-2">
               {['circle', 'square'].map((s) => (
-                <button key={s} onMouseDown={(e) => e.stopPropagation()} onClick={() => setBrushShape(s)} className={`flex-1 px-2 py-1 rounded text-lg ${brushShape === s ? 'bg-emerald-600 text-white' : 'bg-slate-600 text-slate-300'}`} style={{ cursor: helpMode ? 'help' : 'pointer' }}>
+                <button key={s} onMouseDown={(e) => e.stopPropagation()} onClick={() => setBrushShape(s)} className={`flex-1 px-2 py-1 rounded text-lg ${brushShape === s ? 'bg-emerald-600 text-white' : 'bg-slate-600 text-slate-300'}`}>
                   {s === 'circle' ? '●' : '■'}
                 </button>
               ))}
@@ -2028,7 +1988,7 @@ export default function TopographicMapCreator() {
             {hoveredButton === 'brushShape' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Brush Shape</div>
-                <div className="text-slate-400 text-xs">Choose between circular or square brush for painting terrain.</div>
+                <div className="text-slate-400 text-xs">Choose circular or square brush.</div>
               </div>
             )}
           </div>
@@ -2037,7 +1997,6 @@ export default function TopographicMapCreator() {
             className="relative w-32 p-2 bg-slate-700/50 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('oceanDepth')}
             onMouseLeave={() => setHoveredButton(null)}
-            style={{ cursor: helpMode ? 'help' : 'default' }}
           >
             <label className="text-xs font-bold text-slate-300 block mb-1">Ocean: {oceanDepth}m</label>
             <input
@@ -2048,12 +2007,11 @@ export default function TopographicMapCreator() {
               value={oceanDepth}
               onChange={(e) => setOceanDepth(Number(e.target.value))}
               className="w-full h-2 bg-slate-600 rounded accent-blue-500"
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
             />
             {hoveredButton === 'oceanDepth' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Ocean Depth</div>
-                <div className="text-slate-400 text-xs">Right-click to paint ocean depths. Drag the slider to select depth level from shallow (-0m) to abyssal trenches (-600m).</div>
+                <div className="text-slate-400 text-xs">Right-click to paint ocean depths.</div>
               </div>
             )}
           </div>
@@ -2062,7 +2020,6 @@ export default function TopographicMapCreator() {
             className="relative w-32 p-2 bg-slate-700/50 backdrop-blur rounded border border-slate-600"
             onMouseEnter={() => setHoveredButton('landElevation')}
             onMouseLeave={() => setHoveredButton(null)}
-            style={{ cursor: helpMode ? 'help' : 'default' }}
           >
             <label className="text-xs font-bold text-slate-300 block mb-1">Land: {landElevation}m</label>
             <input
@@ -2073,12 +2030,11 @@ export default function TopographicMapCreator() {
               value={landElevation}
               onChange={(e) => setLandElevation(Number(e.target.value))}
               className="w-full h-2 bg-slate-600 rounded accent-green-500"
-              style={{ cursor: helpMode ? 'help' : 'pointer' }}
             />
             {hoveredButton === 'landElevation' && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                 <div className="text-slate-100 font-medium text-sm">Land Elevation</div>
-                <div className="text-slate-400 text-xs">Left-click to paint land elevations. Drag the slider to select elevation level from sea level (0m) to mountain peaks (800m).</div>
+                <div className="text-slate-400 text-xs">Left-click to paint land elevations.</div>
               </div>
             )}
           </div>
@@ -2089,14 +2045,12 @@ export default function TopographicMapCreator() {
               className="relative w-40 p-3 bg-slate-700/50 backdrop-blur rounded border border-slate-600"
               onMouseEnter={() => setHoveredButton('drawBiome')}
               onMouseLeave={() => setHoveredButton(null)}
-              style={{ cursor: helpMode ? 'help' : 'default' }}
             >
               <label className="text-xs font-bold text-slate-300 block mb-2">Draw Biome</label>
               <select
                 value={drawingBiome || 'blend'}
                 onChange={(e) => setDrawingBiome(e.target.value === 'blend' ? null : e.target.value)}
                 className="w-full px-2 py-1 bg-slate-600 text-slate-100 border border-slate-500 rounded text-xs"
-                style={{ cursor: helpMode ? 'help' : 'pointer' }}
               >
                 <option value="blend">Auto Blend</option>
                 {selectedBiomes.map((biome) => (
@@ -2106,7 +2060,7 @@ export default function TopographicMapCreator() {
               {hoveredButton === 'drawBiome' && (
                 <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
                   <div className="text-slate-100 font-medium text-sm">Drawing Biome</div>
-                  <div className="text-slate-400 text-xs">Choose which biome colors to use when painting terrain.</div>
+                  <div className="text-slate-400 text-xs">Choose which biome colors to paint with.</div>
                 </div>
               )}
             </div>
@@ -2118,7 +2072,7 @@ export default function TopographicMapCreator() {
           className="fixed bottom-3 left-3 z-50 bg-slate-800/50 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50"
           onMouseEnter={() => setHoveredButton('legend')}
           onMouseLeave={() => setHoveredButton(null)}
-          style={{ cursor: helpMode ? 'help' : 'default', width: 'fit-content' }}
+          style={{ width: 'fit-content' }}
         >
           <div className="flex flex-col gap-0.5">
             {selectedBiomes.map((biome) => (
