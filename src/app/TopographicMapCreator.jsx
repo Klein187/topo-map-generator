@@ -241,6 +241,51 @@ const getElevationColor = (elevation, biome = BIOME_TYPES.TEMPERATE) => {
   return colorStops[colorStops.length - 1][1];
 };
 
+// Blend multiple biome colors based on weights
+const getBlendedElevationColor = (elevation, biomeWeights) => {
+  if (!biomeWeights || biomeWeights.length === 0) {
+    return getElevationColor(elevation, BIOME_TYPES.TEMPERATE);
+  }
+
+  if (biomeWeights.length === 1) {
+    return getElevationColor(elevation, biomeWeights[0].biome);
+  }
+
+  // Get colors from each biome
+  const colors = biomeWeights.map(({ biome, weight }) => ({
+    color: getElevationColor(elevation, biome),
+    weight
+  }));
+
+  // Parse and blend RGB values
+  const blendedRGB = { r: 0, g: 0, b: 0 };
+
+  colors.forEach(({ color, weight }) => {
+    // Parse hex color
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    blendedRGB.r += r * weight;
+    blendedRGB.g += g * weight;
+    blendedRGB.b += b * weight;
+  });
+
+  // Round to integers
+  const finalR = Math.round(blendedRGB.r);
+  const finalG = Math.round(blendedRGB.g);
+  const finalB = Math.round(blendedRGB.b);
+
+  // Convert back to hex
+  const toHex = (n) => {
+    const hex = n.toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  return `#${toHex(finalR)}${toHex(finalG)}${toHex(finalB)}`;
+};
+
 // Improved random terrain generation with proper Perlin-style noise
 const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiomes = [BIOME_TYPES.TEMPERATE]) => {
   const data = [];
@@ -315,13 +360,17 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
     }
   };
 
-  // Get biome regions - divide map based on number of biomes
-  const getBiomeAtPosition = (x, y) => {
+  // Get biome blend data - calculate weighted influence of each biome
+  const getBiomeBlendData = (x, y) => {
     if (selectedBiomes.length === 1) {
-      return selectedBiomes[0];
+      return {
+        primaryBiome: selectedBiomes[0],
+        blendedConfig: biomeConfigs[selectedBiomes[0]],
+        biomeWeights: [{ biome: selectedBiomes[0], weight: 1.0 }]
+      };
     }
 
-    // For multiple biomes, create Voronoi-like regions
+    // For multiple biomes, create distributed regions
     const biomeCount = selectedBiomes.length;
     const regionSeed = seed + 999;
 
@@ -336,30 +385,80 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       };
     });
 
-    // Find closest biome center
-    let closestBiome = selectedBiomes[0];
-    let minDist = Infinity;
-    for (const center of biomeCenters) {
-      const dist = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
-      if (dist < minDist) {
-        minDist = dist;
-        closestBiome = center.biome;
-      }
-    }
+    // Calculate distance to each biome center
+    const distances = biomeCenters.map(center => ({
+      biome: center.biome,
+      dist: Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2)
+    }));
 
-    return closestBiome;
+    // Sort by distance
+    distances.sort((a, b) => a.dist - b.dist);
+
+    // Blend zone radius (in pixels) - larger = smoother transitions
+    const blendRadius = Math.min(width, height) * 0.15;
+
+    // Calculate weights using inverse distance with falloff
+    let totalWeight = 0;
+    const weights = distances.map(d => {
+      // Use exponential falloff for smoother blending
+      const weight = Math.exp(-d.dist / blendRadius);
+      totalWeight += weight;
+      return { biome: d.biome, weight };
+    });
+
+    // Normalize weights
+    weights.forEach(w => w.weight /= totalWeight);
+
+    // Filter out very small influences
+    const significantWeights = weights.filter(w => w.weight > 0.01);
+
+    // Blend configurations based on weights
+    const blendedConfig = {
+      octaves: 0,
+      persistence: 0,
+      lacunarity: 0,
+      scale: 0,
+      elevationPower: 0,
+      maxElevation: 0,
+      falloffPower: 0,
+      falloffStrength: 0
+    };
+
+    significantWeights.forEach(({ biome, weight }) => {
+      const config = biomeConfigs[biome];
+      blendedConfig.octaves += config.octaves * weight;
+      blendedConfig.persistence += config.persistence * weight;
+      blendedConfig.lacunarity += config.lacunarity * weight;
+      blendedConfig.scale += config.scale * weight;
+      blendedConfig.elevationPower += config.elevationPower * weight;
+      blendedConfig.maxElevation += config.maxElevation * weight;
+      blendedConfig.falloffPower += config.falloffPower * weight;
+      blendedConfig.falloffStrength += config.falloffStrength * weight;
+    });
+
+    // Round octaves to integer
+    blendedConfig.octaves = Math.round(blendedConfig.octaves);
+
+    return {
+      primaryBiome: distances[0].biome,
+      blendedConfig,
+      biomeWeights: significantWeights
+    };
   };
 
   for (let y = 0; y < height; y++) {
     data[y] = [];
     biomeData[y] = [];
     for (let x = 0; x < width; x++) {
-      // Determine biome for this position
-      const biome = getBiomeAtPosition(x, y);
-      const config = biomeConfigs[biome] || biomeConfigs[BIOME_TYPES.TEMPERATE];
+      // Get blended biome data for this position
+      const blendData = getBiomeBlendData(x, y);
+      const config = blendData.blendedConfig;
 
-      // Store biome for this pixel
-      biomeData[y][x] = biome;
+      // Store biome blend data for this pixel (for color blending)
+      biomeData[y][x] = {
+        primaryBiome: blendData.primaryBiome,
+        weights: blendData.biomeWeights
+      };
 
       let elevation = 0;
       let amplitude = 1;
@@ -537,7 +636,10 @@ export default function TopographicMapCreator() {
         biomeData[y] = [];
         for (let x = 0; x < selectedSize.width; x++) {
           data[y][x] = -100;
-          biomeData[y][x] = selectedBiomes[0];
+          biomeData[y][x] = {
+            primaryBiome: selectedBiomes[0],
+            weights: [{ biome: selectedBiomes[0], weight: 1.0 }]
+          };
         }
       }
       elevationDataRef.current = data;
@@ -725,6 +827,7 @@ export default function TopographicMapCreator() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const data = elevationDataRef.current;
+    const biomeData = biomeDataRef.current;
     const radius = brushSize / 2 + 2;
 
     for (let dy = -radius; dy <= radius; dy++) {
@@ -733,7 +836,23 @@ export default function TopographicMapCreator() {
         const py = Math.floor(centerY + dy);
         if (py >= 0 && py < data.length && px >= 0 && px < data[0].length) {
           const elev = data[py][px];
-          const color = getElevationColor(elev, selectedBiomes[0]);
+
+          // Determine which biome color to use
+          let color;
+          if (biomeData.length > 0 && biomeData[py] && biomeData[py][px]) {
+            const biomeInfo = biomeData[py][px];
+            // Handle both old format (string) and new format (object with weights)
+            if (typeof biomeInfo === 'string') {
+              color = getElevationColor(elev, biomeInfo);
+            } else if (biomeInfo.weights) {
+              color = getBlendedElevationColor(elev, biomeInfo.weights);
+            } else {
+              color = getElevationColor(elev, selectedBiomes[0]);
+            }
+          } else {
+            color = getElevationColor(elev, selectedBiomes[0]);
+          }
+
           ctx.fillStyle = color;
           ctx.fillRect(px, py, 1, 1);
         }
@@ -863,10 +982,20 @@ export default function TopographicMapCreator() {
       for (let x = 0; x < data[0].length; x++) {
         const elev = data[y][x];
         // Use biome data if available, otherwise fall back to first selected biome
-        const biome = (biomeData.length > 0 && biomeData[y] && biomeData[y][x])
-          ? biomeData[y][x]
-          : selectedBiomes[0];
-        const color = getElevationColor(elev, biome);
+        let color;
+        if (biomeData.length > 0 && biomeData[y] && biomeData[y][x]) {
+          const biomeInfo = biomeData[y][x];
+          // Handle both old format (string) and new format (object with weights)
+          if (typeof biomeInfo === 'string') {
+            color = getElevationColor(elev, biomeInfo);
+          } else if (biomeInfo.weights) {
+            color = getBlendedElevationColor(elev, biomeInfo.weights);
+          } else {
+            color = getElevationColor(elev, selectedBiomes[0]);
+          }
+        } else {
+          color = getElevationColor(elev, selectedBiomes[0]);
+        }
         ctx.fillStyle = color;
         ctx.fillRect(x, y, 1, 1);
       }
@@ -1176,12 +1305,12 @@ export default function TopographicMapCreator() {
     elevationDataRef.current = newElevationData;
     biomeDataRef.current = newBiomeData;
 
-    // Draw to canvas using biome-specific colors
+    // Draw to canvas using blended biome colors
     for (let y = 0; y < canvasHeight; y++) {
       for (let x = 0; x < canvasWidth; x++) {
         const elev = newElevationData[y][x];
-        const biome = newBiomeData[y][x];
-        const color = getElevationColor(elev, biome);
+        const biomeInfo = newBiomeData[y][x];
+        const color = getBlendedElevationColor(elev, biomeInfo.weights);
         ctx.fillStyle = color;
         ctx.fillRect(x, y, 1, 1);
       }
@@ -1206,7 +1335,10 @@ export default function TopographicMapCreator() {
       biomeData[y] = [];
       for (let x = 0; x < canvasWidth; x++) {
         data[y][x] = -100;
-        biomeData[y][x] = selectedBiomes[0];
+        biomeData[y][x] = {
+          primaryBiome: selectedBiomes[0],
+          weights: [{ biome: selectedBiomes[0], weight: 1.0 }]
+        };
       }
     }
     elevationDataRef.current = data;
