@@ -322,14 +322,14 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       falloffStrength: 0.2
     },
     [BIOME_TYPES.DESERT]: {
-      octaves: 4,
-      persistence: 0.4,
-      lacunarity: 2.2,
-      scale: 0.003,
-      elevationPower: 0.5,
-      maxElevation: 600,
+      octaves: 2,
+      persistence: 0.2,
+      lacunarity: 2.0,
+      scale: 0.002,
+      elevationPower: 0.3,
+      maxElevation: 250,
       falloffPower: 2.0,
-      falloffStrength: 0.15
+      falloffStrength: 0.1
     },
     [BIOME_TYPES.TROPICAL]: {
       octaves: 8,
