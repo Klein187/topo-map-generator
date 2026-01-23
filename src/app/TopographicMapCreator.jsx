@@ -564,6 +564,7 @@ export default function TopographicMapCreator() {
   const [brushOutlinePos, setBrushOutlinePos] = useState({ x: 0, y: 0, visible: false });
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(null);
+  const [showTerrainProgress, setShowTerrainProgress] = useState(false);
   const [labelDialog, setLabelDialog] = useState(null);
   const [editingLabelIndex, setEditingLabelIndex] = useState(null);
   const [labelText, setLabelText] = useState('');
@@ -1272,38 +1273,47 @@ export default function TopographicMapCreator() {
   }, [showElevationNumbers, brushSize, previousBrushSize]);
 
   const generateRandom = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    // Show progress window
+    setShowTerrainProgress(true);
 
-    // Clear undo history when generating new map
-    undoHistoryRef.current = [];
-    setCanUndo(false);
+    // Use setTimeout to allow UI to update before heavy computation
+    setTimeout(() => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
 
-    // Generate random terrain with biome data
-    const { elevationData: newElevationData, biomeData: newBiomeData } = generateRandomTerrain(
-      canvasWidth,
-      canvasHeight,
-      oceanPercentage,
-      selectedBiomes
-    );
-    elevationDataRef.current = newElevationData;
-    biomeDataRef.current = newBiomeData;
+      // Clear undo history when generating new map
+      undoHistoryRef.current = [];
+      setCanUndo(false);
 
-    // Draw to canvas using blended biome colors
-    for (let y = 0; y < canvasHeight; y++) {
-      for (let x = 0; x < canvasWidth; x++) {
-        const elev = newElevationData[y][x];
-        const biomeInfo = newBiomeData[y][x];
-        const color = getBlendedElevationColor(elev, biomeInfo.weights);
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y, 1, 1);
+      // Generate random terrain with biome data
+      const { elevationData: newElevationData, biomeData: newBiomeData } = generateRandomTerrain(
+        canvasWidth,
+        canvasHeight,
+        oceanPercentage,
+        selectedBiomes
+      );
+      elevationDataRef.current = newElevationData;
+      biomeDataRef.current = newBiomeData;
+
+      // Draw to canvas using blended biome colors
+      for (let y = 0; y < canvasHeight; y++) {
+        for (let x = 0; x < canvasWidth; x++) {
+          const elev = newElevationData[y][x];
+          const biomeInfo = newBiomeData[y][x];
+          const color = getBlendedElevationColor(elev, biomeInfo.weights);
+          ctx.fillStyle = color;
+          ctx.fillRect(x, y, 1, 1);
+        }
       }
-    }
 
-    // Redraw contours if enabled
-    if (showContours) {
-      setTimeout(() => drawContourLines(), 50);
-    }
+      // Redraw contours if enabled
+      if (showContours) {
+        setTimeout(() => drawContourLines(), 50);
+      }
+
+      // Hide progress window
+      setShowTerrainProgress(false);
+    }, 50);
   }, [canvasWidth, canvasHeight, oceanPercentage, selectedBiomes, showContours, drawContourLines]);
 
   const clearCanvas = useCallback(() => {
@@ -2366,13 +2376,25 @@ export default function TopographicMapCreator() {
           </div>
         )}
 
+        {/* Terrain Generation Progress */}
+        {showTerrainProgress && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-lg p-8 shadow-2xl">
+              <div className="flex items-center gap-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+                <div className="text-xl font-bold text-slate-100">Creating Terrain......</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Download Modal */}
         {showDownloadModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-6 shadow-2xl max-w-sm">
               <h2 className="text-xl font-bold text-slate-100 mb-4">Download Map</h2>
               <p className="text-slate-400 text-sm mb-6">Choose download format:</p>
-              
+
               <div className="flex flex-col gap-3">
                 <button
                   onClick={() => downloadMap('default')}
