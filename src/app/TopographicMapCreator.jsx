@@ -242,8 +242,9 @@ const getElevationColor = (elevation, biome = BIOME_TYPES.TEMPERATE) => {
 };
 
 // Improved random terrain generation with proper Perlin-style noise
-const generateRandomTerrain = (width, height, oceanPercentage = 50) => {
+const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiomes = [BIOME_TYPES.TEMPERATE]) => {
   const data = [];
+  const biomeData = [];
   const seed = Math.random() * 100000;
 
   // Seeded random function
@@ -260,24 +261,115 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50) => {
   // Interpolation function
   const smoothstep = (t) => t * t * (3 - 2 * t);
 
-  // Generate terrain with multi-octave Perlin noise
-  const octaves = 6;
-  const persistence = 0.5;
-  const lacunarity = 2.0;
-  const scale = 0.002;
+  // Biome-specific terrain characteristics
+  const biomeConfigs = {
+    [BIOME_TYPES.TEMPERATE]: {
+      octaves: 6,
+      persistence: 0.5,
+      lacunarity: 2.0,
+      scale: 0.002,
+      elevationPower: 0.7,
+      maxElevation: 800,
+      falloffPower: 2.5,
+      falloffStrength: 0.2
+    },
+    [BIOME_TYPES.DESERT]: {
+      octaves: 4,
+      persistence: 0.4,
+      lacunarity: 2.2,
+      scale: 0.003,
+      elevationPower: 0.5,
+      maxElevation: 600,
+      falloffPower: 2.0,
+      falloffStrength: 0.15
+    },
+    [BIOME_TYPES.TROPICAL]: {
+      octaves: 7,
+      persistence: 0.55,
+      lacunarity: 1.8,
+      scale: 0.0018,
+      elevationPower: 0.65,
+      maxElevation: 700,
+      falloffPower: 3.0,
+      falloffStrength: 0.25
+    },
+    [BIOME_TYPES.ARCTIC]: {
+      octaves: 5,
+      persistence: 0.45,
+      lacunarity: 2.5,
+      scale: 0.0025,
+      elevationPower: 0.6,
+      maxElevation: 500,
+      falloffPower: 2.2,
+      falloffStrength: 0.1
+    },
+    [BIOME_TYPES.VOLCANIC]: {
+      octaves: 8,
+      persistence: 0.6,
+      lacunarity: 1.9,
+      scale: 0.0015,
+      elevationPower: 0.9,
+      maxElevation: 1000,
+      falloffPower: 1.8,
+      falloffStrength: 0.3
+    }
+  };
+
+  // Get biome regions - divide map based on number of biomes
+  const getBiomeAtPosition = (x, y) => {
+    if (selectedBiomes.length === 1) {
+      return selectedBiomes[0];
+    }
+
+    // For multiple biomes, create Voronoi-like regions
+    const biomeCount = selectedBiomes.length;
+    const regionSeed = seed + 999;
+
+    // Create biome centers using seeded random
+    const biomeCenters = selectedBiomes.map((biome, i) => {
+      const angle = (i / biomeCount) * Math.PI * 2 + seededRandom(regionSeed + i) * 0.5;
+      const distance = 0.3 + seededRandom(regionSeed + i + 100) * 0.3;
+      return {
+        biome,
+        x: width / 2 + Math.cos(angle) * width * distance,
+        y: height / 2 + Math.sin(angle) * height * distance
+      };
+    });
+
+    // Find closest biome center
+    let closestBiome = selectedBiomes[0];
+    let minDist = Infinity;
+    for (const center of biomeCenters) {
+      const dist = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+      if (dist < minDist) {
+        minDist = dist;
+        closestBiome = center.biome;
+      }
+    }
+
+    return closestBiome;
+  };
 
   for (let y = 0; y < height; y++) {
     data[y] = [];
+    biomeData[y] = [];
     for (let x = 0; x < width; x++) {
+      // Determine biome for this position
+      const biome = getBiomeAtPosition(x, y);
+      const config = biomeConfigs[biome] || biomeConfigs[BIOME_TYPES.TEMPERATE];
+
+      // Store biome for this pixel
+      biomeData[y][x] = biome;
+
       let elevation = 0;
       let amplitude = 1;
       let frequency = 1;
       let maxValue = 0;
 
       // Multi-octave noise for natural terrain
-      for (let o = 0; o < octaves; o++) {
-        const sampleX = x * scale * frequency;
-        const sampleY = y * scale * frequency;
+      for (let o = 0; o < config.octaves; o++) {
+        const sampleX = x * config.scale * frequency;
+        const sampleY = y * config.scale * frequency;
 
         const x0 = Math.floor(sampleX);
         const x1 = x0 + 1;
@@ -301,8 +393,8 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50) => {
         elevation += noise * amplitude;
         maxValue += amplitude;
 
-        amplitude *= persistence;
-        frequency *= lacunarity;
+        amplitude *= config.persistence;
+        frequency *= config.lacunarity;
       }
 
       // Normalize
@@ -313,7 +405,7 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50) => {
       const centerY = height / 2;
       const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
       const maxDist = Math.sqrt(centerX ** 2 + centerY ** 2);
-      const falloff = 1 - ((distFromCenter / maxDist) ** 2.5) * 0.2;
+      const falloff = 1 - ((distFromCenter / maxDist) ** config.falloffPower) * config.falloffStrength;
 
       elevation *= falloff;
 
@@ -326,7 +418,7 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50) => {
       if (elevation < 0) {
         elevation = elevation * 300; // Ocean depths
       } else {
-        elevation = Math.pow(elevation, 0.7) * 800; // Land heights with exponential scaling
+        elevation = Math.pow(elevation, config.elevationPower) * config.maxElevation; // Land heights with biome-specific scaling
       }
 
       data[y][x] = elevation;
@@ -344,7 +436,7 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50) => {
     }
   }
 
-  return smoothed;
+  return { elevationData: smoothed, biomeData };
 };
 
 // ============================================================================
@@ -357,6 +449,7 @@ export default function TopographicMapCreator() {
   const contourRef = useRef(null);
   const containerRef = useRef(null);
   const elevationDataRef = useRef([]);
+  const biomeDataRef = useRef([]);
   const isDrawingRef = useRef(false);
   const flattenElevationRef = useRef(null);
   const drawModeRef = useRef(DrawMode.PAINT_LAND);
@@ -436,15 +529,19 @@ export default function TopographicMapCreator() {
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = getElevationColor(-100, selectedBiomes[0]);
       ctx.fillRect(0, 0, selectedSize.width, selectedSize.height);
-      
+
       const data = [];
+      const biomeData = [];
       for (let y = 0; y < selectedSize.height; y++) {
         data[y] = [];
+        biomeData[y] = [];
         for (let x = 0; x < selectedSize.width; x++) {
           data[y][x] = -100;
+          biomeData[y][x] = selectedBiomes[0];
         }
       }
       elevationDataRef.current = data;
+      biomeDataRef.current = biomeData;
 
       // Also resize contour canvas
       const contourCanvas = contourRef.current;
@@ -723,13 +820,16 @@ export default function TopographicMapCreator() {
 
   const saveStateForUndo = useCallback(() => {
     const currentElevationData = elevationDataRef.current;
+    const currentBiomeData = biomeDataRef.current;
 
-    // Deep copy the elevation data
+    // Deep copy the elevation and biome data
     const elevationCopy = currentElevationData.map(row => [...row]);
+    const biomeCopy = currentBiomeData.length > 0 ? currentBiomeData.map(row => [...row]) : [];
 
     // Add to history, keeping only last 3 states
     undoHistoryRef.current.push({
-      elevationData: elevationCopy
+      elevationData: elevationCopy,
+      biomeData: biomeCopy
     });
 
     // Keep only last 3 states
@@ -749,6 +849,7 @@ export default function TopographicMapCreator() {
 
     // Restore the state
     elevationDataRef.current = previousState.elevationData;
+    biomeDataRef.current = previousState.biomeData || [];
 
     // Redraw the entire canvas
     const canvas = canvasRef.current;
@@ -756,11 +857,16 @@ export default function TopographicMapCreator() {
 
     const ctx = canvas.getContext('2d');
     const data = elevationDataRef.current;
+    const biomeData = biomeDataRef.current;
 
     for (let y = 0; y < data.length; y++) {
       for (let x = 0; x < data[0].length; x++) {
         const elev = data[y][x];
-        const color = getElevationColor(elev, selectedBiomes[0]);
+        // Use biome data if available, otherwise fall back to first selected biome
+        const biome = (biomeData.length > 0 && biomeData[y] && biomeData[y][x])
+          ? biomeData[y][x]
+          : selectedBiomes[0];
+        const color = getElevationColor(elev, biome);
         ctx.fillStyle = color;
         ctx.fillRect(x, y, 1, 1);
       }
@@ -1060,15 +1166,22 @@ export default function TopographicMapCreator() {
     undoHistoryRef.current = [];
     setCanUndo(false);
 
-    // Generate random terrain
-    const newElevationData = generateRandomTerrain(canvasWidth, canvasHeight, oceanPercentage);
+    // Generate random terrain with biome data
+    const { elevationData: newElevationData, biomeData: newBiomeData } = generateRandomTerrain(
+      canvasWidth,
+      canvasHeight,
+      oceanPercentage,
+      selectedBiomes
+    );
     elevationDataRef.current = newElevationData;
+    biomeDataRef.current = newBiomeData;
 
-    // Draw to canvas
+    // Draw to canvas using biome-specific colors
     for (let y = 0; y < canvasHeight; y++) {
       for (let x = 0; x < canvasWidth; x++) {
         const elev = newElevationData[y][x];
-        const color = getElevationColor(elev, selectedBiomes[0]);
+        const biome = newBiomeData[y][x];
+        const color = getElevationColor(elev, biome);
         ctx.fillStyle = color;
         ctx.fillRect(x, y, 1, 1);
       }
@@ -1087,13 +1200,17 @@ export default function TopographicMapCreator() {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const data = [];
+    const biomeData = [];
     for (let y = 0; y < canvasHeight; y++) {
       data[y] = [];
+      biomeData[y] = [];
       for (let x = 0; x < canvasWidth; x++) {
         data[y][x] = -100;
+        biomeData[y][x] = selectedBiomes[0];
       }
     }
     elevationDataRef.current = data;
+    biomeDataRef.current = biomeData;
 
     // Clear undo history when clearing canvas
     undoHistoryRef.current = [];
