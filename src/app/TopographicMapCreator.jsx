@@ -499,7 +499,7 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
 
       // Scale to elevation range with biome-specific characteristics
       if (elevation < 0) {
-        elevation = elevation * 300; // Ocean depths
+        elevation = elevation * 600; // Ocean depths
       } else {
         elevation = Math.pow(elevation, elevationPower) * maxElevation;
       }
