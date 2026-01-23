@@ -360,22 +360,13 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
     }
   };
 
-  // Get biome blend data - calculate weighted influence of each biome
-  const getBiomeBlendData = (x, y) => {
-    if (selectedBiomes.length === 1) {
-      return {
-        primaryBiome: selectedBiomes[0],
-        blendedConfig: biomeConfigs[selectedBiomes[0]],
-        biomeWeights: [{ biome: selectedBiomes[0], weight: 1.0 }]
-      };
-    }
-
-    // For multiple biomes, create distributed regions
+  // Calculate biome centers once (outside pixel loop)
+  let biomeCenters = [];
+  if (selectedBiomes.length > 1) {
     const biomeCount = selectedBiomes.length;
     const regionSeed = seed + 999;
 
-    // Create biome centers using seeded random
-    const biomeCenters = selectedBiomes.map((biome, i) => {
+    biomeCenters = selectedBiomes.map((biome, i) => {
       const angle = (i / biomeCount) * Math.PI * 2 + seededRandom(regionSeed + i) * 0.5;
       const distance = 0.3 + seededRandom(regionSeed + i + 100) * 0.3;
       return {
@@ -384,6 +375,13 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
         y: height / 2 + Math.sin(angle) * height * distance
       };
     });
+  }
+
+  // Get biome weights for a position
+  const getBiomeWeights = (x, y) => {
+    if (selectedBiomes.length === 1) {
+      return [{ biome: selectedBiomes[0], weight: 1.0 }];
+    }
 
     // Calculate distance to each biome center
     const distances = biomeCenters.map(center => ({
@@ -391,11 +389,8 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       dist: Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2)
     }));
 
-    // Sort by distance
-    distances.sort((a, b) => a.dist - b.dist);
-
     // Blend zone radius (in pixels) - larger = smoother transitions
-    const blendRadius = Math.min(width, height) * 0.15;
+    const blendRadius = Math.min(width, height) * 0.2;
 
     // Calculate weights using inverse distance with falloff
     let totalWeight = 0;
@@ -410,65 +405,31 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
     weights.forEach(w => w.weight /= totalWeight);
 
     // Filter out very small influences
-    const significantWeights = weights.filter(w => w.weight > 0.01);
-
-    // Blend configurations based on weights
-    const blendedConfig = {
-      octaves: 0,
-      persistence: 0,
-      lacunarity: 0,
-      scale: 0,
-      elevationPower: 0,
-      maxElevation: 0,
-      falloffPower: 0,
-      falloffStrength: 0
-    };
-
-    significantWeights.forEach(({ biome, weight }) => {
-      const config = biomeConfigs[biome];
-      blendedConfig.octaves += config.octaves * weight;
-      blendedConfig.persistence += config.persistence * weight;
-      blendedConfig.lacunarity += config.lacunarity * weight;
-      blendedConfig.scale += config.scale * weight;
-      blendedConfig.elevationPower += config.elevationPower * weight;
-      blendedConfig.maxElevation += config.maxElevation * weight;
-      blendedConfig.falloffPower += config.falloffPower * weight;
-      blendedConfig.falloffStrength += config.falloffStrength * weight;
-    });
-
-    // Round octaves to integer
-    blendedConfig.octaves = Math.round(blendedConfig.octaves);
-
-    return {
-      primaryBiome: distances[0].biome,
-      blendedConfig,
-      biomeWeights: significantWeights
-    };
+    return weights.filter(w => w.weight > 0.01);
   };
 
+  // Use base configuration (average of all selected biomes)
+  const baseConfig = {
+    octaves: 6,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    scale: 0.002
+  };
+
+  // Generate base terrain with consistent noise field
   for (let y = 0; y < height; y++) {
     data[y] = [];
     biomeData[y] = [];
     for (let x = 0; x < width; x++) {
-      // Get blended biome data for this position
-      const blendData = getBiomeBlendData(x, y);
-      const config = blendData.blendedConfig;
-
-      // Store biome blend data for this pixel (for color blending)
-      biomeData[y][x] = {
-        primaryBiome: blendData.primaryBiome,
-        weights: blendData.biomeWeights
-      };
-
       let elevation = 0;
       let amplitude = 1;
       let frequency = 1;
       let maxValue = 0;
 
-      // Multi-octave noise for natural terrain
-      for (let o = 0; o < config.octaves; o++) {
-        const sampleX = x * config.scale * frequency;
-        const sampleY = y * config.scale * frequency;
+      // Multi-octave noise for natural terrain - use consistent parameters
+      for (let o = 0; o < baseConfig.octaves; o++) {
+        const sampleX = x * baseConfig.scale * frequency;
+        const sampleY = y * baseConfig.scale * frequency;
 
         const x0 = Math.floor(sampleX);
         const x1 = x0 + 1;
@@ -492,19 +453,42 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
         elevation += noise * amplitude;
         maxValue += amplitude;
 
-        amplitude *= config.persistence;
-        frequency *= config.lacunarity;
+        amplitude *= baseConfig.persistence;
+        frequency *= baseConfig.lacunarity;
       }
 
       // Normalize
       elevation = (elevation / maxValue) * 2 - 1;
+
+      // Get biome weights for this position
+      const biomeWeights = getBiomeWeights(x, y);
+
+      // Store biome data
+      biomeData[y][x] = {
+        primaryBiome: biomeWeights[0].biome,
+        weights: biomeWeights
+      };
+
+      // Apply biome-specific characteristics by blending
+      let elevationPower = 0;
+      let maxElevation = 0;
+      let falloffPower = 0;
+      let falloffStrength = 0;
+
+      biomeWeights.forEach(({ biome, weight }) => {
+        const config = biomeConfigs[biome];
+        elevationPower += config.elevationPower * weight;
+        maxElevation += config.maxElevation * weight;
+        falloffPower += config.falloffPower * weight;
+        falloffStrength += config.falloffStrength * weight;
+      });
 
       // Add gentle center falloff for island effect
       const centerX = width / 2;
       const centerY = height / 2;
       const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
       const maxDist = Math.sqrt(centerX ** 2 + centerY ** 2);
-      const falloff = 1 - ((distFromCenter / maxDist) ** config.falloffPower) * config.falloffStrength;
+      const falloff = 1 - ((distFromCenter / maxDist) ** falloffPower) * falloffStrength;
 
       elevation *= falloff;
 
@@ -513,11 +497,11 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       const seaLevelAdjustment = 0.2 - (oceanPercentage / 100) * 0.6;
       elevation += seaLevelAdjustment;
 
-      // Scale to elevation range
+      // Scale to elevation range with biome-specific characteristics
       if (elevation < 0) {
         elevation = elevation * 300; // Ocean depths
       } else {
-        elevation = Math.pow(elevation, config.elevationPower) * config.maxElevation; // Land heights with biome-specific scaling
+        elevation = Math.pow(elevation, elevationPower) * maxElevation;
       }
 
       data[y][x] = elevation;
