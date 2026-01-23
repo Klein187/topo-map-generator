@@ -2277,10 +2277,14 @@ export default function TopographicMapCreator() {
               <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-400">Patch Notes</span>
-                  <span className="text-xs text-emerald-400 font-mono">v1.3.0</span>
+                  <span className="text-xs text-emerald-400 font-mono">v1.4.0</span>
                 </div>
                 <div className="max-h-48 overflow-y-auto">
                   <ul className="text-xs text-slate-500 space-y-1 pr-2">
+                    <li className="text-slate-400">• Desert biome now generates flatter terrain like a real desert</li>
+                    <li className="text-slate-400">• Arctic biome now has flat icy plains with occasional mountain ranges</li>
+                    <li className="text-slate-400">• Volcanic biome now generates frequent volcano peaks with glowing lava (red/orange) at summits</li>
+                    <li className="text-slate-400">• Redesigned Controls window with organized sections for Getting Started, Drawing, and Navigation</li>
                     <li>• Deleted old Random generation, encountered a catastrophic error.</li>
                     <li>• Added Land/Ocean sliders to more control when painting</li>
                     <li>• Added an undo button that will undo up to 3 previous actions</li>
@@ -2300,60 +2304,99 @@ export default function TopographicMapCreator() {
         {/* Controls Explanation Modal */}
         {showControlsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="bg-slate-800 border border-slate-600 rounded-xl p-8 shadow-2xl max-w-md w-full mx-4">
+            <div className="bg-slate-800 border border-slate-600 rounded-xl p-8 shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-slate-100 mb-2 text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Controls
               </h2>
               <p className="text-slate-400 text-sm mb-6 text-center">Here&apos;s how to create your map</p>
 
-              <div className="space-y-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <ChevronUp size={18} className="text-white" />
+              {/* Getting Started Section */}
+              <div className="mb-5">
+                <h3 className="text-emerald-400 font-semibold text-sm mb-3 uppercase tracking-wide">Getting Started</h3>
+                <div className="bg-slate-700/50 rounded-lg p-3 text-slate-300 text-xs space-y-2">
+                  <p><span className="text-emerald-400 font-medium">Generate Random Terrain:</span> Click the dice icon to auto-generate terrain. Select biomes (Temperate, Desert, Tropical, Arctic, Volcanic) to change the style.</p>
+                  <p><span className="text-emerald-400 font-medium">Start from Scratch:</span> Use the draw tools below to manually paint your own terrain.</p>
+                </div>
+              </div>
+
+              {/* Drawing Section */}
+              <div className="mb-5">
+                <h3 className="text-blue-400 font-semibold text-sm mb-3 uppercase tracking-wide">Drawing Terrain</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <ChevronUp size={18} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Left Click + Drag</div>
+                      <div className="text-slate-400 text-xs">Paint land and mountains. Use the elevation slider to set height (0-800m).</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-slate-100 font-medium text-sm">Left Click</div>
-                    <div className="text-slate-400 text-xs">Paint land elevations (use slider to select height)</div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <ChevronDown size={18} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Right Click + Drag</div>
+                      <div className="text-slate-400 text-xs">Paint oceans and water. Use the elevation slider for depth (0 to -600m).</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xs font-bold">⇧</span>
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Shift + Click</div>
+                      <div className="text-slate-400 text-xs">Flatten terrain to match the elevation where you clicked.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xs font-bold">◯</span>
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Brush Size</div>
+                      <div className="text-slate-400 text-xs">Adjust the brush size slider to paint larger or smaller areas.</div>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <ChevronDown size={18} className="text-white" />
+              {/* Navigation Section */}
+              <div className="mb-6">
+                <h3 className="text-cyan-400 font-semibold text-sm mb-3 uppercase tracking-wide">Navigation</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Move size={16} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Pan / Move Around</div>
+                      <div className="text-slate-400 text-xs">Click the hand icon in the toolbar, then drag to move around the map. Or hold the middle mouse button and drag.</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-slate-100 font-medium text-sm">Right Click</div>
-                    <div className="text-slate-400 text-xs">Paint ocean depths (use slider to select depth)</div>
-                  </div>
-                </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">⇧</span>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xs font-bold">⊕</span>
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Zoom In / Out</div>
+                      <div className="text-slate-400 text-xs">Use the scroll wheel to zoom in and out. Or use the + / - buttons in the toolbar.</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-slate-100 font-medium text-sm">Shift + Click</div>
-                    <div className="text-slate-400 text-xs">Flatten terrain to clicked elevation</div>
-                  </div>
-                </div>
 
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Move size={16} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="text-slate-100 font-medium text-sm">Pan Mode</div>
-                    <div className="text-slate-400 text-xs">Click the hand icon to drag and navigate the map, or hold middle mouse button</div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <MapPin size={16} className="text-white" />
-                  </div>
-                  <div>
-                    <div className="text-slate-100 font-medium text-sm">Labels</div>
-                    <div className="text-slate-400 text-xs">Add place names and annotations to your map</div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <MapPin size={16} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Add Labels</div>
+                      <div className="text-slate-400 text-xs">Click the pin icon, then click on the map to add place names and annotations.</div>
+                    </div>
                   </div>
                 </div>
               </div>
