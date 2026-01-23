@@ -343,14 +343,14 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       islandMode: true
     },
     [BIOME_TYPES.ARCTIC]: {
-      octaves: 5,
-      persistence: 0.45,
-      lacunarity: 2.5,
-      scale: 0.0025,
-      elevationPower: 0.6,
-      maxElevation: 500,
+      octaves: 3,
+      persistence: 0.25,
+      lacunarity: 2.0,
+      scale: 0.0015,
+      elevationPower: 1.8,
+      maxElevation: 700,
       falloffPower: 2.2,
-      falloffStrength: 0.1
+      falloffStrength: 0.08
     },
     [BIOME_TYPES.VOLCANIC]: {
       octaves: 8,
