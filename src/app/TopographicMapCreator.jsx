@@ -203,25 +203,22 @@ const BIOME_COLORS = {
     [-75, '#4d4743'],   // Mid ocean
     [-50, '#57534e'],   // Ocean
     [-25, '#78716c'],   // Shallow water
-    [0, '#a8a29e'],     // Coastline
-    [25, '#57534e'],
-    [50, '#44403c'],
-    [100, '#292524'],
-    [150, '#1c1917'],
-    [200, '#450a0a'],
-    [250, '#7f1d1d'],
-    [300, '#991b1b'],
-    [350, '#b91c1c'],
-    [400, '#dc2626'],
-    [450, '#ef4444'],
-    [500, '#f87171'],
-    [550, '#fca5a5'],
-    [600, '#44403c'],
-    [650, '#57534e'],
-    [700, '#78716c'],
-    [750, '#a8a29e'],
-    [800, '#d6d3d1'],
-    [Infinity, '#e7e5e4']
+    [0, '#a8a29e'],     // Coastline - ash gray
+    [50, '#78716c'],    // Volcanic ash
+    [100, '#57534e'],   // Dark volcanic rock
+    [150, '#44403c'],   // Darker rock
+    [200, '#292524'],   // Very dark rock
+    [250, '#1c1917'],   // Near-black volcanic rock
+    [300, '#1a0a0a'],   // Dark with hint of red
+    [350, '#2d0a0a'],   // Deep volcanic red
+    [400, '#450a0a'],   // Dark lava crust
+    [450, '#7f1d1d'],   // Cooling lava
+    [500, '#991b1b'],   // Hot lava
+    [550, '#b91c1c'],   // Brighter lava
+    [600, '#dc2626'],   // Glowing lava
+    [650, '#ef4444'],   // Bright lava
+    [700, '#f97316'],   // Orange-red lava
+    [Infinity, '#fb923c']  // Molten orange at peak
   ],
 };
 
@@ -353,14 +350,14 @@ const generateRandomTerrain = (width, height, oceanPercentage = 50, selectedBiom
       falloffStrength: 0.08
     },
     [BIOME_TYPES.VOLCANIC]: {
-      octaves: 8,
-      persistence: 0.6,
-      lacunarity: 1.9,
-      scale: 0.0015,
-      elevationPower: 0.9,
-      maxElevation: 1000,
+      octaves: 5,
+      persistence: 0.5,
+      lacunarity: 2.2,
+      scale: 0.004,
+      elevationPower: 0.4,
+      maxElevation: 800,
       falloffPower: 1.8,
-      falloffStrength: 0.3
+      falloffStrength: 0.1
     }
   };
 
