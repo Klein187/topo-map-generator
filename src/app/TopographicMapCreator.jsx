@@ -2305,14 +2305,20 @@ export default function TopographicMapCreator() {
               <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-400">Patch Notes</span>
-                  <span className="text-xs text-emerald-400 font-mono">v1.4.0</span>
+                  <span className="text-xs text-emerald-400 font-mono">v1.5.0</span>
                 </div>
                 <div className="max-h-48 overflow-y-auto">
                   <ul className="text-xs text-slate-500 space-y-1 pr-2">
-                    <li className="text-slate-400">• Desert biome now generates flatter terrain like a real desert</li>
-                    <li className="text-slate-400">• Arctic biome now has flat icy plains with occasional mountain ranges</li>
-                    <li className="text-slate-400">• Volcanic biome now generates frequent volcano peaks with glowing lava (red/orange) at summits</li>
-                    <li className="text-slate-400">• Redesigned Controls window with organized sections for Getting Started, Drawing, and Navigation</li>
+                    <li className="text-slate-400">• Added 3D Terrain Viewer - click the cube icon to explore your map in 3D</li>
+                    <li className="text-slate-400">• 3D view features orbit controls: drag to rotate, scroll to zoom, right-drag to pan</li>
+                    <li className="text-slate-400">• Toggle contour lines in 3D view (black on land, white on ocean)</li>
+                    <li className="text-slate-400">• Animated ocean water overlay with wave motion</li>
+                    <li className="text-slate-400">• 3D terrain includes solid walls around edges for a polished look</li>
+                    <li className="text-slate-400">• Added 3D View section to Controls window</li>
+                    <li>• Desert biome now generates flatter terrain like a real desert</li>
+                    <li>• Arctic biome now has flat icy plains with occasional mountain ranges</li>
+                    <li>• Volcanic biome now generates frequent volcano peaks with glowing lava (red/orange) at summits</li>
+                    <li>• Redesigned Controls window with organized sections for Getting Started, Drawing, and Navigation</li>
                     <li>• Deleted old Random generation, encountered a catastrophic error.</li>
                     <li>• Added Land/Ocean sliders to more control when painting</li>
                     <li>• Added an undo button that will undo up to 3 previous actions</li>
@@ -2424,6 +2430,32 @@ export default function TopographicMapCreator() {
                     <div>
                       <div className="text-slate-100 font-medium text-sm">Add Labels</div>
                       <div className="text-slate-400 text-xs">Click the pin icon, then click on the map to add place names and annotations.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3D View Section */}
+              <div className="mb-6">
+                <h3 className="text-violet-400 font-semibold text-sm mb-3 uppercase tracking-wide">3D View</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Box size={16} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Explore in 3D</div>
+                      <div className="text-slate-400 text-xs">Click the cube icon in the toolbar to view your terrain in 3D. Drag to rotate, scroll to zoom, right-drag to pan.</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Layers size={16} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-slate-100 font-medium text-sm">Contour Lines</div>
+                      <div className="text-slate-400 text-xs">Toggle contour lines on/off in 3D view. Black lines on land, white lines on ocean.</div>
                     </div>
                   </div>
                 </div>
