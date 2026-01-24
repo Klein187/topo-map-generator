@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map } from 'lucide-react';
+import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, Box } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+// Dynamically import 3D viewer to avoid SSR issues with Three.js
+const TerrainViewer3D = dynamic(
+  () => import('./components/TerrainViewer3D/TerrainViewer3D'),
+  { ssr: false, loading: () => null }
+);
 
 // ============================================================================
 // CONSTANTS
@@ -629,6 +636,7 @@ export default function TopographicMapCreator() {
   const [canvasWidth, setCanvasWidth] = useState(CANVAS_WIDTH);
   const [canvasHeight, setCanvasHeight] = useState(CANVAS_HEIGHT);
   const [selectedBiomes, setSelectedBiomes] = useState([BIOME_TYPES.TEMPERATE]);
+  const [show3DView, setShow3DView] = useState(false);
 
   // Handle map size selection
   const handleSizeSelection = useCallback((size) => {
@@ -1994,6 +2002,26 @@ export default function TopographicMapCreator() {
               </div>
             )}
           </div>
+          <div
+            className="relative"
+            onMouseEnter={() => setHoveredButton('3dView')}
+            onMouseLeave={() => setHoveredButton(null)}
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setShow3DView(true)}
+              className="w-10 h-10 flex items-center justify-center rounded shadow-lg border bg-slate-700 border-slate-600 text-white hover:bg-emerald-600 hover:border-emerald-500 transition-colors"
+              title="3D View"
+            >
+              <Box size={18} />
+            </button>
+            {hoveredButton === '3dView' && (
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                <div className="text-slate-100 font-medium text-sm">3D View</div>
+                <div className="text-slate-400 text-xs">Explore your terrain in 3D.</div>
+              </div>
+            )}
+          </div>
 
           <div
             className="relative w-32 p-2 bg-slate-700/50 backdrop-blur rounded border border-slate-600"
@@ -2685,6 +2713,17 @@ export default function TopographicMapCreator() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* 3D Terrain Viewer */}
+        {show3DView && (
+          <TerrainViewer3D
+            elevationData={elevationDataRef.current}
+            biomeData={biomeDataRef.current}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+            onClose={() => setShow3DView(false)}
+          />
         )}
       </div>
     </div>
