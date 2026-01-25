@@ -103,7 +103,7 @@ function TerrainViewer3D({
             far: 1000
           }}
           gl={{ antialias: true }}
-          linear
+          flat
         >
           {/* Sky background */}
           <color attach="background" args={['#1e293b']} />
@@ -122,6 +122,7 @@ function TerrainViewer3D({
           {/* Water surface at sea level - only over ocean areas */}
           <Water3D
             elevationData={elevationData}
+            biomeData={biomeData}
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
           />
