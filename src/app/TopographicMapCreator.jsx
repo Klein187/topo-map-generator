@@ -2521,29 +2521,29 @@ export default function TopographicMapCreator() {
               <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-400">Patch Notes</span>
-                  <span className="text-xs text-emerald-400 font-mono">v1.5.0</span>
+                  <span className="text-xs text-emerald-400 font-mono">v1.6.0</span>
                 </div>
                 <div className="max-h-48 overflow-y-auto">
                   <ul className="text-xs text-slate-500 space-y-1 pr-2">
-                    <li className="text-slate-400">• Added 3D Terrain Viewer - click the cube icon to explore your map in 3D</li>
-                    <li className="text-slate-400">• 3D view features orbit controls: drag to rotate, scroll to zoom, right-drag to pan</li>
-                    <li className="text-slate-400">• Toggle contour lines in 3D view (black on land, white on ocean)</li>
-                    <li className="text-slate-400">• Animated ocean water overlay with wave motion</li>
-                    <li className="text-slate-400">• 3D terrain includes solid walls around edges for a polished look</li>
-                    <li className="text-slate-400">• Added 3D View section to Controls window</li>
+                    <li className="text-slate-400">• Edit Mode: 3D view now updates in real-time when drawing in 2D</li>
+                    <li className="text-slate-400">• Optimized 3D rendering to prevent unnecessary updates from UI control changes</li>
+                    <li className="text-slate-400">• Fixed zoom buttons not working in Edit Mode</li>
+                    <li className="text-slate-400">• Reorganized UI buttons into vertical columns for better layout</li>
+                    <li className="text-slate-400">• 3D terrain colors now accurately match 2D view colors</li>
+                    <li className="text-slate-400">• Ocean water overlay displays depth-based color gradients matching 2D view</li>
+                    <li className="text-slate-400">• 3D contour lines now match 2D styling: 30m intervals with minor/major/coastline categories</li>
+                    <li className="text-slate-400">• Ocean contours in 3D view changed to black for better visibility</li>
+                    <li>• Added 3D Terrain Viewer - click the cube icon to explore your map in 3D</li>
+                    <li>• 3D view features orbit controls: drag to rotate, scroll to zoom, right-drag to pan</li>
+                    <li>• Toggle contour lines in 3D view</li>
+                    <li>• Animated ocean water overlay with wave motion</li>
+                    <li>• 3D terrain includes solid walls around edges for a polished look</li>
                     <li>• Desert biome now generates flatter terrain like a real desert</li>
                     <li>• Arctic biome now has flat icy plains with occasional mountain ranges</li>
                     <li>• Volcanic biome now generates frequent volcano peaks with glowing lava (red/orange) at summits</li>
-                    <li>• Redesigned Controls window with organized sections for Getting Started, Drawing, and Navigation</li>
-                    <li>• Deleted old Random generation, encountered a catastrophic error.</li>
                     <li>• Added Land/Ocean sliders to more control when painting</li>
                     <li>• Added an undo button that will undo up to 3 previous actions</li>
                     <li>• Moved elevation data to show next to cursor instead of bottom right corner</li>
-                    <li>• Added more to oceans and added more visual representation.</li>
-                    <li>• Added middle mouse button explanation to the movement controls</li>
-                    <li>• When hovering over different buttons a window will popup with an explanation</li>
-                    <li>• Lowered opacity on various button windows</li>
-                    <li>• Added an extra large map option which is the original large map size, the new large map is 75% of extra large</li>
                   </ul>
                 </div>
               </div>
