@@ -185,11 +185,11 @@ export default function ContourLines3D({
         </lineSegments>
       )}
 
-      {/* Ocean contours - animated with water, white */}
+      {/* Ocean contours - animated with water, black */}
       {oceanGeometry && (
         <group ref={oceanGroupRef}>
           <lineSegments geometry={oceanGeometry}>
-            <lineBasicMaterial color="#ffffff" transparent opacity={0.7} linewidth={1} />
+            <lineBasicMaterial color="#000000" transparent opacity={0.7} linewidth={1} />
           </lineSegments>
         </group>
       )}
