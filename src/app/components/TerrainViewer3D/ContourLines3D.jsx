@@ -4,7 +4,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-const CONTOUR_INTERVAL = 50;
+const CONTOUR_INTERVAL = 30; // Match 2D view
 const HEIGHT_SCALE = 0.01;
 
 export default function ContourLines3D({
@@ -14,8 +14,10 @@ export default function ContourLines3D({
 }) {
   const oceanGroupRef = useRef();
 
-  const { landGeometry, oceanGeometry } = useMemo(() => {
-    if (!elevationData || !elevationData.length) return { landGeometry: null, oceanGeometry: null };
+  const { minorGeometry, majorGeometry, coastlineGeometry, oceanGeometry } = useMemo(() => {
+    if (!elevationData || !elevationData.length) {
+      return { minorGeometry: null, majorGeometry: null, coastlineGeometry: null, oceanGeometry: null };
+    }
 
     const maxSegments = 250;
     const sampleRateX = Math.max(1, Math.ceil(canvasWidth / maxSegments));
@@ -42,8 +44,10 @@ export default function ContourLines3D({
     const startLevel = Math.ceil(minElev / CONTOUR_INTERVAL) * CONTOUR_INTERVAL;
     const endLevel = Math.floor(maxElev / CONTOUR_INTERVAL) * CONTOUR_INTERVAL;
 
-    const landVertices = [];
-    const oceanVertices = [];
+    const minorVertices = []; // Every 30m (not major)
+    const majorVertices = []; // Every 150m
+    const coastlineVertices = []; // 0m
+    const oceanVertices = []; // Below 0m
 
     const elevGrid = new Float32Array(segmentsX * segmentsY);
     for (let gy = 0; gy < segmentsY; gy++) {
@@ -58,9 +62,23 @@ export default function ContourLines3D({
 
     for (let level = startLevel; level <= endLevel; level += CONTOUR_INTERVAL) {
       const isOcean = level < 0;
+      const isCoastline = level === 0;
+      const isMajor = level % 150 === 0 && level !== 0;
+
       // Ocean contours at y=0 (will be animated), land at their elevation
       const y3d = isOcean ? 0 : level * HEIGHT_SCALE + 0.05;
-      const targetVertices = isOcean ? oceanVertices : landVertices;
+
+      // Choose target array based on type
+      let targetVertices;
+      if (isOcean) {
+        targetVertices = oceanVertices;
+      } else if (isCoastline) {
+        targetVertices = coastlineVertices;
+      } else if (isMajor) {
+        targetVertices = majorVertices;
+      } else {
+        targetVertices = minorVertices;
+      }
 
       for (let gy = 0; gy < segmentsY - 1; gy++) {
         for (let gx = 0; gx < segmentsX - 1; gx++) {
@@ -108,10 +126,22 @@ export default function ContourLines3D({
       }
     }
 
-    let landGeo = null;
-    if (landVertices.length > 0) {
-      landGeo = new THREE.BufferGeometry();
-      landGeo.setAttribute('position', new THREE.Float32BufferAttribute(landVertices, 3));
+    let minorGeo = null;
+    if (minorVertices.length > 0) {
+      minorGeo = new THREE.BufferGeometry();
+      minorGeo.setAttribute('position', new THREE.Float32BufferAttribute(minorVertices, 3));
+    }
+
+    let majorGeo = null;
+    if (majorVertices.length > 0) {
+      majorGeo = new THREE.BufferGeometry();
+      majorGeo.setAttribute('position', new THREE.Float32BufferAttribute(majorVertices, 3));
+    }
+
+    let coastlineGeo = null;
+    if (coastlineVertices.length > 0) {
+      coastlineGeo = new THREE.BufferGeometry();
+      coastlineGeo.setAttribute('position', new THREE.Float32BufferAttribute(coastlineVertices, 3));
     }
 
     let oceanGeo = null;
@@ -120,7 +150,7 @@ export default function ContourLines3D({
       oceanGeo.setAttribute('position', new THREE.Float32BufferAttribute(oceanVertices, 3));
     }
 
-    return { landGeometry: landGeo, oceanGeometry: oceanGeo };
+    return { minorGeometry: minorGeo, majorGeometry: majorGeo, coastlineGeometry: coastlineGeo, oceanGeometry: oceanGeo };
   }, [elevationData, canvasWidth, canvasHeight]);
 
   // Animate ocean contours to follow water motion - always stay above water
@@ -134,10 +164,24 @@ export default function ContourLines3D({
 
   return (
     <group>
-      {/* Land contours - static, black */}
-      {landGeometry && (
-        <lineSegments geometry={landGeometry}>
-          <lineBasicMaterial color="#000000" opacity={1.0} />
+      {/* Minor contours (every 30m, not major) - thin, semi-transparent */}
+      {minorGeometry && (
+        <lineSegments geometry={minorGeometry}>
+          <lineBasicMaterial color="#1e1e1e" transparent opacity={0.9} linewidth={1} />
+        </lineSegments>
+      )}
+
+      {/* Major contours (every 150m) - medium thickness */}
+      {majorGeometry && (
+        <lineSegments geometry={majorGeometry}>
+          <lineBasicMaterial color="#141414" opacity={1.0} linewidth={2} />
+        </lineSegments>
+      )}
+
+      {/* Coastline (0m) - thick, black */}
+      {coastlineGeometry && (
+        <lineSegments geometry={coastlineGeometry}>
+          <lineBasicMaterial color="#000000" opacity={1.0} linewidth={3} />
         </lineSegments>
       )}
 
@@ -145,7 +189,7 @@ export default function ContourLines3D({
       {oceanGeometry && (
         <group ref={oceanGroupRef}>
           <lineSegments geometry={oceanGeometry}>
-            <lineBasicMaterial color="#ffffff" transparent opacity={0.7} />
+            <lineBasicMaterial color="#ffffff" transparent opacity={0.7} linewidth={1} />
           </lineSegments>
         </group>
       )}
