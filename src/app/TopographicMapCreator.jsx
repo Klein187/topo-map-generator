@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, Box, Columns2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { exportMinecraftHeightmap, exportWorldPainterMaps } from './utils/minecraftExport';
 
 // Dynamically import 3D viewer to avoid SSR issues with Three.js
 const TerrainViewer3D = dynamic(
@@ -1588,6 +1589,118 @@ export default function TopographicMapCreator() {
     }
   }, [labels, drawContourLines]);
 
+  const downloadMinecraftExport = useCallback(async (format) => {
+    setShowDownloadModal(false);
+    setDownloadProgress('Preparing Minecraft export...');
+
+    try {
+      const elevationData = elevationDataRef.current;
+      const biomeData = biomeDataRef.current;
+
+      if (!elevationData || elevationData.length === 0) {
+        console.error('No elevation data available');
+        setDownloadProgress('Export failed - no elevation data');
+        setTimeout(() => setDownloadProgress(null), 3000);
+        return;
+      }
+
+      // Helper function to download a blob
+      const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
+      if (format === 'minecraft-heightmap') {
+        setDownloadProgress('Generating 16-bit heightmap...');
+
+        const result = await exportMinecraftHeightmap(elevationData, {
+          filename: 'minecraft-heightmap'
+        });
+
+        // Download heightmap PNG
+        downloadBlob(result.heightmapBlob, `${result.filename}.png`);
+
+        // Download metadata JSON after delay
+        if (result.metadata) {
+          setTimeout(() => {
+            downloadBlob(
+              new Blob([result.metadata], { type: 'application/json' }),
+              `${result.filename}-info.json`
+            );
+            setDownloadProgress(`${result.filename}.png\n${result.filename}-info.json`);
+          }, 500);
+        } else {
+          setDownloadProgress(`${result.filename}.png`);
+        }
+
+      } else if (format === 'worldpainter') {
+        setDownloadProgress('Generating WorldPainter maps...');
+
+        const result = await exportWorldPainterMaps(elevationData, biomeData, {
+          filename: 'worldpainter-terrain',
+          includeBiomes: true
+        });
+
+        const downloads = [];
+
+        // Download heightmap PNG
+        downloadBlob(result.heightmapBlob, `${result.filename}-heightmap.png`);
+        downloads.push(`${result.filename}-heightmap.png`);
+
+        // Download biome map PNG if available
+        if (result.biomeBlob) {
+          setTimeout(() => {
+            downloadBlob(result.biomeBlob, `${result.filename}-biomes.png`);
+            downloads.push(`${result.filename}-biomes.png`);
+          }, 500);
+        }
+
+        // Download biome mapping JSON
+        if (result.biomeMapping) {
+          setTimeout(() => {
+            downloadBlob(
+              new Blob([result.biomeMapping], { type: 'application/json' }),
+              `${result.filename}-biome-mapping.json`
+            );
+            downloads.push(`${result.filename}-biome-mapping.json`);
+          }, 1000);
+        }
+
+        // Download metadata JSON
+        if (result.metadata) {
+          setTimeout(() => {
+            downloadBlob(
+              new Blob([result.metadata], { type: 'application/json' }),
+              `${result.filename}-info.json`
+            );
+            downloads.push(`${result.filename}-info.json`);
+
+            // Update progress with all filenames
+            setDownloadProgress(downloads.join('\n'));
+          }, 1500);
+        }
+      }
+
+      // Clear progress after delay
+      setTimeout(() => {
+        setDownloadProgress(null);
+      }, 4000);
+
+    } catch (error) {
+      console.error('Minecraft export failed:', error);
+      setDownloadProgress(`Export failed: ${error.message}`);
+      setTimeout(() => {
+        setDownloadProgress(null);
+      }, 3000);
+    }
+  }, []);
+
   const handleZoom = useCallback((delta) => {
     setZoom(prev => Math.max(0.5, Math.min(5, prev + delta)));
   }, []);
@@ -2702,29 +2815,65 @@ export default function TopographicMapCreator() {
         {/* Download Modal */}
         {showDownloadModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-slate-800 border border-slate-600 rounded-lg p-6 shadow-2xl max-w-sm">
+            <div className="bg-slate-800 border border-slate-600 rounded-lg p-6 shadow-2xl max-w-md">
               <h2 className="text-xl font-bold text-slate-100 mb-4">Download Map</h2>
               <p className="text-slate-400 text-sm mb-6">Choose download format:</p>
 
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => downloadMap('default')}
-                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
-                >
-                  Default
-                </button>
-                <button
-                  onClick={() => downloadMap('with-contours')}
-                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
-                >
-                  With Contours
-                </button>
-                <button
-                  onClick={() => downloadMap('both')}
-                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
-                >
-                  Both
-                </button>
+                {/* PNG Map Exports */}
+                <div className="pb-3 border-b border-slate-600">
+                  <p className="text-xs text-slate-500 mb-2 font-semibold">PNG MAP EXPORTS</p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => downloadMap('default')}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all text-sm"
+                    >
+                      Default Map
+                    </button>
+                    <button
+                      onClick={() => downloadMap('with-contours')}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all text-sm"
+                    >
+                      With Contours
+                    </button>
+                    <button
+                      onClick={() => downloadMap('both')}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all text-sm"
+                    >
+                      Both Maps
+                    </button>
+                  </div>
+                </div>
+
+                {/* Minecraft Exports */}
+                <div className="pb-3 border-b border-slate-600">
+                  <p className="text-xs text-slate-500 mb-2 font-semibold">MINECRAFT EXPORTS</p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => downloadMinecraftExport('minecraft-heightmap')}
+                      className="px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all"
+                    >
+                      <div className="flex flex-col items-start">
+                        <span className="font-bold">Minecraft Heightmap</span>
+                        <span className="text-xs text-green-100 opacity-90">
+                          16-bit PNG for Minecraft 1.18+
+                        </span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => downloadMinecraftExport('worldpainter')}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-all"
+                    >
+                      <div className="flex flex-col items-start">
+                        <span className="font-bold">WorldPainter Package</span>
+                        <span className="text-xs text-purple-100 opacity-90">
+                          Heightmap + biome maps + metadata
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => setShowDownloadModal(false)}
                   className="px-4 py-3 bg-slate-600 hover:bg-slate-500 text-slate-300 rounded-lg font-medium transition-all"
