@@ -137,7 +137,7 @@ export default function ContourLines3D({
       {/* Land contours - static, black */}
       {landGeometry && (
         <lineSegments geometry={landGeometry}>
-          <lineBasicMaterial color="#000000" transparent opacity={0.7} />
+          <lineBasicMaterial color="#000000" opacity={1.0} />
         </lineSegments>
       )}
 

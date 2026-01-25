@@ -1340,16 +1340,30 @@ export default function TopographicMapCreator() {
       elevationDataRef.current = newElevationData;
       biomeDataRef.current = newBiomeData;
 
-      // Draw to canvas using blended biome colors
+      // Draw to canvas using blended biome colors with ImageData for better performance
+      const imageData = ctx.createImageData(canvasWidth, canvasHeight);
+      const data = imageData.data;
+
       for (let y = 0; y < canvasHeight; y++) {
         for (let x = 0; x < canvasWidth; x++) {
           const elev = newElevationData[y][x];
           const biomeInfo = newBiomeData[y][x];
           const color = getBlendedElevationColor(elev, biomeInfo.weights);
-          ctx.fillStyle = color;
-          ctx.fillRect(x, y, 1, 1);
+
+          // Parse hex color to RGB
+          const r = parseInt(color.slice(1, 3), 16);
+          const g = parseInt(color.slice(3, 5), 16);
+          const b = parseInt(color.slice(5, 7), 16);
+
+          const index = (y * canvasWidth + x) * 4;
+          data[index] = r;
+          data[index + 1] = g;
+          data[index + 2] = b;
+          data[index + 3] = 255; // Alpha
         }
       }
+
+      ctx.putImageData(imageData, 0, 0);
 
       // Redraw contours if enabled
       if (showContours) {
