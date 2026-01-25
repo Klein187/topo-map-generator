@@ -25,7 +25,8 @@ export default function TerrainViewer3D({
   biomeData,
   canvasWidth,
   canvasHeight,
-  onClose
+  onClose,
+  embedded = false
 }) {
   const [showContours, setShowContours] = useState(false);
 
@@ -34,47 +35,58 @@ export default function TerrainViewer3D({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900"
+      className={embedded
+        ? "relative h-full w-full bg-slate-900"
+        : "fixed inset-0 z-50 bg-slate-900"
+      }
       onMouseDown={(e) => e.stopPropagation()}
       onMouseUp={(e) => e.stopPropagation()}
       onMouseMove={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-50 w-12 h-12 flex items-center justify-center rounded-full bg-slate-800/90 border border-slate-600 text-white hover:bg-slate-700 transition-colors shadow-xl"
-        title="Close 3D View"
-      >
-        <X size={24} />
-      </button>
+      {/* Close button - only in full mode */}
+      {!embedded && (
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-50 w-12 h-12 flex items-center justify-center rounded-full bg-slate-800/90 border border-slate-600 text-white hover:bg-slate-700 transition-colors shadow-xl"
+          title="Close 3D View"
+        >
+          <X size={24} />
+        </button>
+      )}
 
       {/* Title */}
-      <div className="absolute top-4 left-4 z-50 flex items-center gap-3 bg-slate-800/90 border border-slate-600 rounded-lg px-4 py-2 shadow-xl">
-        <Mountain className="text-emerald-400" size={24} />
-        <span className="text-white font-semibold">3D Terrain View</span>
+      <div className={embedded
+        ? "absolute top-2 left-2 z-50 flex items-center gap-2 bg-slate-800/90 border border-slate-600 rounded-lg px-3 py-1.5 shadow-xl"
+        : "absolute top-4 left-4 z-50 flex items-center gap-3 bg-slate-800/90 border border-slate-600 rounded-lg px-4 py-2 shadow-xl"
+      }>
+        <Mountain className="text-emerald-400" size={embedded ? 20 : 24} />
+        <span className="text-white font-semibold text-sm">{embedded ? 'Live 3D Preview' : '3D Terrain View'}</span>
       </div>
 
       {/* Contour lines toggle */}
-      <div className="absolute top-20 left-4 z-50">
+      <div className={embedded ? "absolute top-12 left-2 z-50" : "absolute top-20 left-4 z-50"}>
         <button
           onClick={() => setShowContours(!showContours)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg border shadow-xl transition-colors ${
+          className={`flex items-center gap-2 ${embedded ? 'px-3 py-1.5' : 'px-4 py-2'} rounded-lg border shadow-xl transition-colors ${
             showContours
               ? 'bg-blue-600 border-blue-500 text-white'
               : 'bg-slate-800/90 border-slate-600 text-slate-300 hover:bg-slate-700'
           }`}
           title="Toggle Contour Lines"
         >
-          <Layers size={18} />
-          <span className="text-sm font-medium">Contour Lines</span>
+          <Layers size={embedded ? 16 : 18} />
+          <span className={`${embedded ? 'text-xs' : 'text-sm'} font-medium`}>Contour Lines</span>
         </button>
       </div>
 
       {/* Controls hint */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 border border-slate-600 rounded-lg px-4 py-2 shadow-xl">
-        <p className="text-slate-400 text-sm">
+      <div className={embedded
+        ? "absolute bottom-2 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 border border-slate-600 rounded-lg px-3 py-1.5 shadow-xl"
+        : "absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 border border-slate-600 rounded-lg px-4 py-2 shadow-xl"
+      }>
+        <p className={`text-slate-400 ${embedded ? 'text-xs' : 'text-sm'}`}>
           <span className="text-slate-200">Drag</span> to rotate &nbsp;|&nbsp;
           <span className="text-slate-200">Scroll</span> to zoom &nbsp;|&nbsp;
           <span className="text-slate-200">Right-drag</span> to pan

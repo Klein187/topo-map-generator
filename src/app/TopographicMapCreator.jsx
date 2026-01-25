@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, Box } from 'lucide-react';
+import { Mountain, Droplet, Trees, Download, Trash2, MapPin, Layers, Shuffle, Hash, ZoomIn, ZoomOut, Move, Circle, Square, Undo, ChevronUp, ChevronDown, Map, Box, Columns2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // Dynamically import 3D viewer to avoid SSR issues with Three.js
@@ -233,6 +233,12 @@ const DrawMode = {
   PAINT_LAND: 'paint_land',
   PAINT_OCEAN: 'paint_ocean',
   FLATTEN: 'flatten',
+};
+
+const ViewMode = {
+  FULL_2D: 'full_2d',
+  FULL_3D: 'full_3d',
+  SPLIT_EDIT: 'split_edit'
 };
 
 // ============================================================================
@@ -636,7 +642,14 @@ export default function TopographicMapCreator() {
   const [canvasWidth, setCanvasWidth] = useState(CANVAS_WIDTH);
   const [canvasHeight, setCanvasHeight] = useState(CANVAS_HEIGHT);
   const [selectedBiomes, setSelectedBiomes] = useState([BIOME_TYPES.TEMPERATE]);
-  const [show3DView, setShow3DView] = useState(false);
+  const [viewMode, setViewMode] = useState(ViewMode.FULL_2D);
+  const [canUseSplitMode, setCanUseSplitMode] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  );
+
+  // Helper constants for view mode
+  const isSplitMode = viewMode === ViewMode.SPLIT_EDIT;
+  const is3DVisible = viewMode === ViewMode.FULL_3D || viewMode === ViewMode.SPLIT_EDIT;
 
   // Handle map size selection
   const handleSizeSelection = useCallback((size) => {
@@ -749,6 +762,34 @@ export default function TopographicMapCreator() {
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
   }, []);
+
+  // Responsive breakpoint: disable split mode on small screens
+  useEffect(() => {
+    const handleResize = () => {
+      const canUse = window.innerWidth >= 1024;
+      setCanUseSplitMode(canUse);
+      if (!canUse && viewMode === ViewMode.SPLIT_EDIT) {
+        setViewMode(ViewMode.FULL_2D);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [viewMode]);
+
+  // Auto-adjust zoom for split mode
+  useEffect(() => {
+    if (viewMode === ViewMode.SPLIT_EDIT) {
+      const viewportWidth = window.innerWidth / 2;
+      const optimalZoom = Math.min(
+        viewportWidth / canvasWidth,
+        window.innerHeight / canvasHeight,
+        0.5
+      );
+      if (zoom > optimalZoom) {
+        setZoom(optimalZoom);
+      }
+    }
+  }, [viewMode, canvasWidth, canvasHeight, zoom]);
 
   // ============================================================================
   // ELEVATION & DRAWING
@@ -1520,15 +1561,71 @@ export default function TopographicMapCreator() {
         body { font-family: 'Merriweather', serif; }
       `}</style>
 
-      {/* Full-screen map container */}
-      <div
-        ref={containerRef}
-        className="absolute inset-0 w-full h-full"
-        style={{
-          cursor: isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair'),
-          touchAction: 'none',
-          overflow: 'hidden'
-        }}
+      {/* Split Edit Mode - Side by Side 2D and 3D */}
+      {viewMode === ViewMode.SPLIT_EDIT ? (
+        <div className="grid grid-cols-2 h-full w-full gap-0">
+          {/* Left Panel: 2D Editor */}
+          <div
+            ref={containerRef}
+            className="relative h-full w-full overflow-hidden border-r-2 border-slate-600"
+            style={{
+              cursor: isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair'),
+              touchAction: 'none',
+              overflow: 'hidden'
+            }}
+            onWheel={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const direction = e.deltaY > 0 ? -1 : 1;
+              handleZoom(direction * 0.2);
+            }}
+            onMouseDown={(e) => {
+              if (isAddingLabel && draggingLabelIndex === null && labelDialog === null) {
+                handleCanvasClick(e);
+              } else if (!isAddingLabel) {
+                startDrawing(e);
+              }
+            }}
+            onMouseMove={handleMouseMove}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onContextMenu={(e) => e.preventDefault()}
+            onTouchStart={startDrawing}
+            onTouchMove={handleMouseMove}
+            onTouchEnd={stopDrawing}
+          >
+      ) : (
+        /* Full 2D Mode - Full-screen map container */
+        <div
+          ref={containerRef}
+          className="absolute inset-0 w-full h-full"
+          style={{
+            cursor: isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair'),
+            touchAction: 'none',
+            overflow: 'hidden'
+          }}
+          onWheel={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const direction = e.deltaY > 0 ? -1 : 1;
+            handleZoom(direction * 0.2);
+          }}
+          onMouseDown={(e) => {
+            if (isAddingLabel && draggingLabelIndex === null && labelDialog === null) {
+              handleCanvasClick(e);
+            } else if (!isAddingLabel) {
+              startDrawing(e);
+            }
+          }}
+          onMouseMove={handleMouseMove}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onContextMenu={(e) => e.preventDefault()}
+          onTouchStart={startDrawing}
+          onTouchMove={handleMouseMove}
+          onTouchEnd={stopDrawing}
+        >
+      )}
         onWheel={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -2016,25 +2113,93 @@ export default function TopographicMapCreator() {
               </div>
             )}
           </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('3dView')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => setShow3DView(true)}
-              className="w-10 h-10 flex items-center justify-center rounded shadow-lg border bg-slate-700 border-slate-600 text-white hover:bg-emerald-600 hover:border-emerald-500 transition-colors"
-              title="3D View"
+          {/* View Mode Switcher */}
+          <div className="relative flex flex-col gap-1 bg-slate-700/30 p-1 rounded">
+            <div
+              className="relative"
+              onMouseEnter={() => setHoveredButton('view2D')}
+              onMouseLeave={() => setHoveredButton(null)}
             >
-              <Box size={18} />
-            </button>
-            {hoveredButton === '3dView' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">3D View</div>
-                <div className="text-slate-400 text-xs">Explore your terrain in 3D.</div>
-              </div>
-            )}
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => setViewMode(ViewMode.FULL_2D)}
+                className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
+                  viewMode === ViewMode.FULL_2D
+                    ? 'bg-emerald-600 border-emerald-500'
+                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
+                } text-white`}
+                title="2D View"
+              >
+                <Map size={18} />
+              </button>
+              {hoveredButton === 'view2D' && (
+                <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                  <div className="text-slate-100 font-medium text-sm">2D View</div>
+                  <div className="text-slate-400 text-xs">Full 2D map editor.</div>
+                </div>
+              )}
+            </div>
+            <div
+              className="relative"
+              onMouseEnter={() => setHoveredButton('editMode')}
+              onMouseLeave={() => setHoveredButton(null)}
+            >
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  if (!canUseSplitMode) {
+                    alert('Split view requires a screen width of at least 1024px');
+                    return;
+                  }
+                  setViewMode(ViewMode.SPLIT_EDIT);
+                }}
+                className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
+                  viewMode === ViewMode.SPLIT_EDIT
+                    ? 'bg-emerald-600 border-emerald-500'
+                    : !canUseSplitMode
+                    ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600 text-white'
+                }`}
+                title="Edit Mode"
+                disabled={!canUseSplitMode}
+              >
+                <Columns2 size={18} />
+              </button>
+              {hoveredButton === 'editMode' && (
+                <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                  <div className="text-slate-100 font-medium text-sm">Edit Mode</div>
+                  <div className="text-slate-400 text-xs">
+                    {canUseSplitMode
+                      ? 'Side-by-side 2D editing with live 3D preview.'
+                      : 'Requires screen width ≥ 1024px'}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div
+              className="relative"
+              onMouseEnter={() => setHoveredButton('view3D')}
+              onMouseLeave={() => setHoveredButton(null)}
+            >
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => setViewMode(ViewMode.FULL_3D)}
+                className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
+                  viewMode === ViewMode.FULL_3D
+                    ? 'bg-emerald-600 border-emerald-500'
+                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
+                } text-white`}
+                title="3D View"
+              >
+                <Box size={18} />
+              </button>
+              {hoveredButton === 'view3D' && (
+                <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                  <div className="text-slate-100 font-medium text-sm">3D View</div>
+                  <div className="text-slate-400 text-xs">Full 3D terrain explorer.</div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div
@@ -2760,17 +2925,36 @@ export default function TopographicMapCreator() {
             </div>
           </div>
         )}
+      </div>
 
-        {/* 3D Terrain Viewer */}
-        {show3DView && (
+      {/* Right Panel: 3D Viewer (Split Mode Only) */}
+      {viewMode === ViewMode.SPLIT_EDIT && (
+        <div className="relative h-full w-full overflow-hidden">
           <TerrainViewer3D
             elevationData={elevationDataRef.current}
             biomeData={biomeDataRef.current}
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
-            onClose={() => setShow3DView(false)}
+            onClose={() => setViewMode(ViewMode.FULL_2D)}
+            embedded={true}
           />
-        )}
+        </div>
+      )}
+
+      {/* Close grid container for split mode */}
+      {viewMode === ViewMode.SPLIT_EDIT && </div>}
+
+      {/* 3D Terrain Viewer - Full overlay mode only */}
+      {viewMode === ViewMode.FULL_3D && (
+        <TerrainViewer3D
+          elevationData={elevationDataRef.current}
+          biomeData={biomeDataRef.current}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          onClose={() => setViewMode(ViewMode.FULL_2D)}
+          embedded={false}
+        />
+      )}
       </div>
     </div>
   );
