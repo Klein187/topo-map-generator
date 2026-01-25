@@ -642,6 +642,8 @@ export default function TopographicMapCreator() {
   const [canvasWidth, setCanvasWidth] = useState(CANVAS_WIDTH);
   const [canvasHeight, setCanvasHeight] = useState(CANVAS_HEIGHT);
   const [selectedBiomes, setSelectedBiomes] = useState([BIOME_TYPES.TEMPERATE]);
+  const [terrainVersion, setTerrainVersion] = useState(0); // Increment to trigger 3D view updates
+  const [terrain3DSnapshot, setTerrain3DSnapshot] = useState({ elevationData: null, biomeData: null }); // Stable snapshot for 3D view
   const [viewMode, setViewMode] = useState(ViewMode.FULL_2D);
   const [canUseSplitMode, setCanUseSplitMode] = useState(
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
@@ -726,13 +728,27 @@ export default function TopographicMapCreator() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const data = [];
+    const biomeData = [];
     for (let y = 0; y < canvas.height; y++) {
       data[y] = [];
+      biomeData[y] = [];
       for (let x = 0; x < canvas.width; x++) {
         data[y][x] = -100;
+        biomeData[y][x] = {
+          primaryBiome: selectedBiomes[0],
+          weights: [{ biome: selectedBiomes[0], weight: 1.0 }]
+        };
       }
     }
     elevationDataRef.current = data;
+    biomeDataRef.current = biomeData;
+
+    // Initialize 3D snapshot
+    setTerrain3DSnapshot({
+      elevationData: data,
+      biomeData: biomeData
+    });
+    setTerrainVersion(prev => prev + 1);
   }, [mapSize, selectedBiomes]);
 
   useEffect(() => {
@@ -776,7 +792,7 @@ export default function TopographicMapCreator() {
     return () => window.removeEventListener('resize', handleResize);
   }, [viewMode]);
 
-  // Auto-adjust zoom for split mode
+  // Auto-adjust zoom for split mode (only when entering split mode, not on every zoom change)
   useEffect(() => {
     if (viewMode === ViewMode.SPLIT_EDIT) {
       const viewportWidth = window.innerWidth / 2;
@@ -785,11 +801,23 @@ export default function TopographicMapCreator() {
         window.innerHeight / canvasHeight,
         0.5
       );
-      if (zoom > optimalZoom) {
-        setZoom(optimalZoom);
-      }
+      setZoom(prev => {
+        // Only adjust if current zoom is too large, but let user zoom freely otherwise
+        if (prev > optimalZoom * 2) {
+          return optimalZoom;
+        }
+        return prev;
+      });
     }
-  }, [viewMode, canvasWidth, canvasHeight, zoom]);
+  }, [viewMode, canvasWidth, canvasHeight]);
+
+  // Update 3D terrain snapshot when terrainVersion changes
+  useEffect(() => {
+    setTerrain3DSnapshot({
+      elevationData: elevationDataRef.current,
+      biomeData: biomeDataRef.current
+    });
+  }, [terrainVersion]);
 
   // ============================================================================
   // ELEVATION & DRAWING
@@ -1079,6 +1107,9 @@ export default function TopographicMapCreator() {
 
     // Update undo availability
     setCanUndo(undoHistoryRef.current.length > 0);
+
+    // Trigger 3D view update
+    setTerrainVersion(prev => prev + 1);
   }, [selectedBiomes, showContours, drawContourLines]);
 
   // ============================================================================
@@ -1142,6 +1173,7 @@ export default function TopographicMapCreator() {
   }, [isAddingLabel, isPanMode, pan, zoom, drawMode, getCanvasCoordinates, draw, saveStateForUndo]);
 
   const stopDrawing = useCallback(() => {
+    const wasDrawing = isDrawingRef.current;
     isDrawingRef.current = false;
     setIsPanning(false);
     if (draggingLabelIndex !== null) {
@@ -1151,6 +1183,10 @@ export default function TopographicMapCreator() {
     setDraggingLabelIndex(null);
     if (showContours) {
       setTimeout(() => drawContourLines(), 0);
+    }
+    // Trigger 3D view update if we were drawing
+    if (wasDrawing) {
+      setTerrainVersion(prev => prev + 1);
     }
   }, [showContours, drawContourLines]);
 
@@ -1411,6 +1447,9 @@ export default function TopographicMapCreator() {
         setTimeout(() => drawContourLines(), 50);
       }
 
+      // Trigger 3D view update
+      setTerrainVersion(prev => prev + 1);
+
       // Hide progress window
       setShowTerrainProgress(false);
     }, 50);
@@ -1449,6 +1488,9 @@ export default function TopographicMapCreator() {
     const contourCanvas = contourRef.current;
     const contourCtx = contourCanvas.getContext('2d');
     contourCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+    // Trigger 3D view update
+    setTerrainVersion(prev => prev + 1);
   }, [canvasWidth, canvasHeight, selectedBiomes]);
 
   const downloadMap = useCallback((option = 'default') => {
@@ -1554,6 +1596,42 @@ export default function TopographicMapCreator() {
   // RENDER
   // ============================================================================
 
+  // Stable callback for closing 3D view
+  const handleClose3D = useCallback(() => {
+    setViewMode(ViewMode.FULL_2D);
+  }, []);
+
+  // Memoize 3D viewers to prevent unnecessary re-renders when UI settings change
+  const splitMode3DViewer = useMemo(() => {
+    if (!terrain3DSnapshot.elevationData) return null;
+    return (
+      <TerrainViewer3D
+        key={`split-${terrainVersion}`}
+        elevationData={terrain3DSnapshot.elevationData}
+        biomeData={terrain3DSnapshot.biomeData}
+        canvasWidth={canvasWidth}
+        canvasHeight={canvasHeight}
+        onClose={handleClose3D}
+        embedded={true}
+      />
+    );
+  }, [terrainVersion, terrain3DSnapshot, canvasWidth, canvasHeight, handleClose3D]);
+
+  const fullMode3DViewer = useMemo(() => {
+    if (!terrain3DSnapshot.elevationData) return null;
+    return (
+      <TerrainViewer3D
+        key={`full-${terrainVersion}`}
+        elevationData={terrain3DSnapshot.elevationData}
+        biomeData={terrain3DSnapshot.biomeData}
+        canvasWidth={canvasWidth}
+        canvasHeight={canvasHeight}
+        onClose={handleClose3D}
+        embedded={false}
+      />
+    );
+  }, [terrainVersion, terrain3DSnapshot, canvasWidth, canvasHeight, handleClose3D]);
+
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-black">
       <style>{`
@@ -1561,48 +1639,31 @@ export default function TopographicMapCreator() {
         body { font-family: 'Merriweather', serif; }
       `}</style>
 
-      {/* Split Edit Mode - Side by Side 2D and 3D */}
-      {viewMode === ViewMode.SPLIT_EDIT ? (
-        <div className="grid grid-cols-2 h-full w-full gap-0">
-          {/* Left Panel: 2D Editor */}
-          <div
-            ref={containerRef}
-            className="relative h-full w-full overflow-hidden border-r-2 border-slate-600"
-            style={{
-              cursor: isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair'),
-              touchAction: 'none',
-              overflow: 'hidden'
-            }}
-            onWheel={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const direction = e.deltaY > 0 ? -1 : 1;
-              handleZoom(direction * 0.2);
-            }}
-            onMouseDown={(e) => {
-              if (isAddingLabel && draggingLabelIndex === null && labelDialog === null) {
-                handleCanvasClick(e);
-              } else if (!isAddingLabel) {
-                startDrawing(e);
-              }
-            }}
-            onMouseMove={handleMouseMove}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            onContextMenu={(e) => e.preventDefault()}
-            onTouchStart={startDrawing}
-            onTouchMove={handleMouseMove}
-            onTouchEnd={stopDrawing}
-          >
-      ) : (
-        /* Full 2D Mode - Full-screen map container */
+      {/* Wrapper: Grid for split mode, transparent for full mode */}
+      <div className={isSplitMode ? "grid grid-cols-2 h-full w-full gap-0" : ""}>
+        {/* 2D Map container */}
+        <div className={isSplitMode ? "relative h-full w-full border-r-2 border-slate-600" : "absolute inset-0 w-full h-full"}>
         <div
-          ref={containerRef}
-          className="absolute inset-0 w-full h-full"
+        ref={containerRef}
+        className="absolute inset-0 w-full h-full"
+        style={{
+          pointerEvents: 'none',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Map canvas at full transform */}
+        <div
+          className="canvas-container"
           style={{
+            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+            transformOrigin: '0 0',
+            transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+            width: `${canvasWidth}px`,
+            height: `${canvasHeight}px`,
+            pointerEvents: 'auto',
             cursor: isAddingLabel ? 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI4IiBjeT0iOCIgcj0iNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9IiNmZmYiLz48L3N2Zz4=") 8 8, auto' : (isPanMode || isPanning ? 'grab' : 'crosshair'),
             touchAction: 'none',
-            overflow: 'hidden'
+            zIndex: 10
           }}
           onWheel={(e) => {
             e.preventDefault();
@@ -1624,38 +1685,6 @@ export default function TopographicMapCreator() {
           onTouchStart={startDrawing}
           onTouchMove={handleMouseMove}
           onTouchEnd={stopDrawing}
-        >
-      )}
-        onWheel={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const direction = e.deltaY > 0 ? -1 : 1;
-          handleZoom(direction * 0.2);
-        }}
-        onMouseDown={(e) => {
-          if (isAddingLabel && draggingLabelIndex === null && labelDialog === null) {
-            handleCanvasClick(e);
-          } else if (!isAddingLabel) {
-            startDrawing(e);
-          }
-        }}
-        onMouseMove={handleMouseMove}
-        onMouseUp={stopDrawing}
-        onMouseLeave={stopDrawing}
-        onContextMenu={(e) => e.preventDefault()}
-        onTouchStart={startDrawing}
-        onTouchMove={handleMouseMove}
-        onTouchEnd={stopDrawing}
-      >
-        {/* Map canvas at full transform */}
-        <div
-          style={{
-            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-            transformOrigin: '0 0',
-            transition: isPanning ? 'none' : 'transform 0.1s ease-out',
-            width: `${canvasWidth}px`,
-            height: `${canvasHeight}px`
-          }}
         >
           <canvas
             ref={canvasRef}
@@ -1848,9 +1877,10 @@ export default function TopographicMapCreator() {
             })}
           </svg>
         </div>
+      </div>
 
         {/* Top Left - Title & Generation */}
-        <div className="fixed top-4 left-4 z-50 max-w-sm">
+        <div className={isSplitMode ? "absolute top-4 left-4 z-50 max-w-sm pointer-events-auto" : "fixed top-4 left-4 z-50 max-w-sm"}>
           <h1 className="text-3xl font-bold text-slate-100 mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>Topographic Map</h1>
           <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-md rounded-lg p-4 border border-slate-600 shadow-lg">
             <div className="flex gap-2 mb-3">
@@ -1960,245 +1990,252 @@ export default function TopographicMapCreator() {
         </div>
 
         {/* Top Right - Controls */}
-        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('pan')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => { setIsPanMode(!isPanMode); setIsAddingLabel(false); }}
-              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${isPanMode ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
-              title="Pan"
-            >
-              <Move size={18} />
-            </button>
-            {hoveredButton === 'pan' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Pan Mode</div>
-                <div className="text-slate-400 text-xs">Click and drag to navigate around the map.</div>
-              </div>
-            )}
-          </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('zoomIn')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => handleZoom(0.2)}
-              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
-            >
-              <ZoomIn size={18} />
-            </button>
-            {hoveredButton === 'zoomIn' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Zoom In</div>
-                <div className="text-slate-400 text-xs">Increase zoom to see more detail.</div>
-              </div>
-            )}
-          </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('zoomOut')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => handleZoom(-0.2)}
-              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
-            >
-              <ZoomOut size={18} />
-            </button>
-            {hoveredButton === 'zoomOut' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Zoom Out</div>
-                <div className="text-slate-400 text-xs">Decrease zoom to see more of the map.</div>
-              </div>
-            )}
-          </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('undo')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={undo}
-              disabled={!canUndo}
-              className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ cursor: !canUndo ? 'not-allowed' : 'pointer' }}
-            >
-              <Undo size={18} />
-            </button>
-            {hoveredButton === 'undo' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Undo</div>
-                <div className="text-slate-400 text-xs">Undo your last drawing action.</div>
-              </div>
-            )}
-          </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('contours')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => {
-                if (!showContours) {
-                  setDrawingContours(true);
-                  setTimeout(() => {
-                    drawContourLines();
-                    setShowContours(true);
-                    setDrawingContours(false);
-                  }, 100);
-                } else {
-                  setShowContours(false);
-                }
-              }}
-              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showContours ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
-            >
-              <Layers size={18} />
-            </button>
-            {hoveredButton === 'contours' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Contour Lines</div>
-                <div className="text-slate-400 text-xs">Toggle topographic contour lines.</div>
-              </div>
-            )}
-          </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('elevation')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={handleToggleElevationNumbers}
-              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showElevationNumbers ? 'bg-cyan-600 border-cyan-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
-            >
-              <Hash size={18} />
-            </button>
-            {hoveredButton === 'elevation' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Elevation Display</div>
-                <div className="text-slate-400 text-xs">Show elevation at cursor position.</div>
-              </div>
-            )}
-          </div>
-          <div
-            className="relative"
-            onMouseEnter={() => setHoveredButton('label')}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => setIsAddingLabel(!isAddingLabel)}
-              className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-all ${
-                isAddingLabel
-                  ? 'bg-violet-600 border-violet-500 text-white'
-                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
-              }`}
-              title={isAddingLabel ? 'Cancel Labeling' : 'Add Label'}
-            >
-              <MapPin size={18} />
-            </button>
-            {hoveredButton === 'label' && (
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                <div className="text-slate-100 font-medium text-sm">Add Labels</div>
-                <div className="text-slate-400 text-xs">Click on the map to add place names.</div>
-              </div>
-            )}
-          </div>
-          {/* View Mode Switcher */}
-          <div className="relative flex flex-col gap-1 bg-slate-700/30 p-1 rounded">
-            <div
-              className="relative"
-              onMouseEnter={() => setHoveredButton('view2D')}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              <button
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => setViewMode(ViewMode.FULL_2D)}
-                className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
-                  viewMode === ViewMode.FULL_2D
-                    ? 'bg-emerald-600 border-emerald-500'
-                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
-                } text-white`}
-                title="2D View"
+        <div className={isSplitMode ? "absolute top-4 right-4 z-50 flex flex-col gap-2 pointer-events-auto" : "fixed top-4 right-4 z-50 flex flex-col gap-2"}>
+          {/* First Row: Pan/Zoom column and View Modes column */}
+          <div className="flex gap-2">
+            {/* Left column: Pan and Zoom buttons */}
+            <div className="flex flex-col gap-2">
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('pan')}
+                onMouseLeave={() => setHoveredButton(null)}
               >
-                <Map size={18} />
-              </button>
-              {hoveredButton === 'view2D' && (
-                <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                  <div className="text-slate-100 font-medium text-sm">2D View</div>
-                  <div className="text-slate-400 text-xs">Full 2D map editor.</div>
-                </div>
-              )}
-            </div>
-            <div
-              className="relative"
-              onMouseEnter={() => setHoveredButton('editMode')}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              <button
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => {
-                  if (!canUseSplitMode) {
-                    alert('Split view requires a screen width of at least 1024px');
-                    return;
-                  }
-                  setViewMode(ViewMode.SPLIT_EDIT);
-                }}
-                className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
-                  viewMode === ViewMode.SPLIT_EDIT
-                    ? 'bg-emerald-600 border-emerald-500'
-                    : !canUseSplitMode
-                    ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600 text-white'
-                }`}
-                title="Edit Mode"
-                disabled={!canUseSplitMode}
-              >
-                <Columns2 size={18} />
-              </button>
-              {hoveredButton === 'editMode' && (
-                <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                  <div className="text-slate-100 font-medium text-sm">Edit Mode</div>
-                  <div className="text-slate-400 text-xs">
-                    {canUseSplitMode
-                      ? 'Side-by-side 2D editing with live 3D preview.'
-                      : 'Requires screen width ≥ 1024px'}
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => { setIsPanMode(!isPanMode); setIsAddingLabel(false); }}
+                  className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${isPanMode ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
+                  title="Pan"
+                >
+                  <Move size={18} />
+                </button>
+                {hoveredButton === 'pan' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Pan Mode</div>
+                    <div className="text-slate-400 text-xs">Click and drag to navigate around the map.</div>
                   </div>
-                </div>
-              )}
-            </div>
-            <div
-              className="relative"
-              onMouseEnter={() => setHoveredButton('view3D')}
-              onMouseLeave={() => setHoveredButton(null)}
-            >
-              <button
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => setViewMode(ViewMode.FULL_3D)}
-                className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
-                  viewMode === ViewMode.FULL_3D
-                    ? 'bg-emerald-600 border-emerald-500'
-                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
-                } text-white`}
-                title="3D View"
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('zoomIn')}
+                onMouseLeave={() => setHoveredButton(null)}
               >
-                <Box size={18} />
-              </button>
-              {hoveredButton === 'view3D' && (
-                <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
-                  <div className="text-slate-100 font-medium text-sm">3D View</div>
-                  <div className="text-slate-400 text-xs">Full 3D terrain explorer.</div>
-                </div>
-              )}
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => handleZoom(0.2)}
+                  className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
+                >
+                  <ZoomIn size={18} />
+                </button>
+                {hoveredButton === 'zoomIn' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Zoom In</div>
+                    <div className="text-slate-400 text-xs">Increase zoom to see more detail.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('zoomOut')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => handleZoom(-0.2)}
+                  className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg"
+                >
+                  <ZoomOut size={18} />
+                </button>
+                {hoveredButton === 'zoomOut' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Zoom Out</div>
+                    <div className="text-slate-400 text-xs">Decrease zoom to see more of the map.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('undo')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={undo}
+                  disabled={!canUndo}
+                  className="w-10 h-10 flex items-center justify-center rounded bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ cursor: !canUndo ? 'not-allowed' : 'pointer' }}
+                >
+                  <Undo size={18} />
+                </button>
+                {hoveredButton === 'undo' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Undo</div>
+                    <div className="text-slate-400 text-xs">Undo your last drawing action.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('contours')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => {
+                    if (!showContours) {
+                      setDrawingContours(true);
+                      setTimeout(() => {
+                        drawContourLines();
+                        setShowContours(true);
+                        setDrawingContours(false);
+                      }, 100);
+                    } else {
+                      setShowContours(false);
+                    }
+                  }}
+                  className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showContours ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
+                >
+                  <Layers size={18} />
+                </button>
+                {hoveredButton === 'contours' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Contour Lines</div>
+                    <div className="text-slate-400 text-xs">Toggle topographic contour lines.</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right column: View Mode Switcher - Vertical */}
+            <div className="flex flex-col gap-1 bg-slate-700/30 p-1 rounded">
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('view2D')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => setViewMode(ViewMode.FULL_2D)}
+                  className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
+                    viewMode === ViewMode.FULL_2D
+                      ? 'bg-emerald-600 border-emerald-500'
+                      : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
+                  } text-white`}
+                  title="2D View"
+                >
+                  <Map size={18} />
+                </button>
+                {hoveredButton === 'view2D' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">2D View</div>
+                    <div className="text-slate-400 text-xs">Full 2D map editor.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('editMode')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => {
+                    if (!canUseSplitMode) {
+                      alert('Split view requires a screen width of at least 1024px');
+                      return;
+                    }
+                    setViewMode(ViewMode.SPLIT_EDIT);
+                  }}
+                  className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
+                    viewMode === ViewMode.SPLIT_EDIT
+                      ? 'bg-emerald-600 border-emerald-500'
+                      : !canUseSplitMode
+                      ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-700 border-slate-600 hover:bg-slate-600 text-white'
+                  }`}
+                  title="Edit Mode"
+                  disabled={!canUseSplitMode}
+                >
+                  <Columns2 size={18} />
+                </button>
+                {hoveredButton === 'editMode' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Edit Mode</div>
+                    <div className="text-slate-400 text-xs">
+                      {canUseSplitMode
+                        ? 'Side-by-side 2D editing with live 3D preview.'
+                        : 'Requires screen width ≥ 1024px'}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('view3D')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => setViewMode(ViewMode.FULL_3D)}
+                  className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-colors ${
+                    viewMode === ViewMode.FULL_3D
+                      ? 'bg-emerald-600 border-emerald-500'
+                      : 'bg-slate-700 border-slate-600 hover:bg-slate-600'
+                  } text-white`}
+                  title="3D View"
+                >
+                  <Box size={18} />
+                </button>
+                {hoveredButton === 'view3D' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">3D View</div>
+                    <div className="text-slate-400 text-xs">Full 3D terrain explorer.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('elevation')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={handleToggleElevationNumbers}
+                  className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border ${showElevationNumbers ? 'bg-cyan-600 border-cyan-500' : 'bg-slate-700 border-slate-600'} text-white hover:bg-slate-600`}
+                >
+                  <Hash size={18} />
+                </button>
+                {hoveredButton === 'elevation' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Elevation Display</div>
+                    <div className="text-slate-400 text-xs">Show elevation at cursor position.</div>
+                  </div>
+                )}
+              </div>
+              <div
+                className="relative"
+                onMouseEnter={() => setHoveredButton('label')}
+                onMouseLeave={() => setHoveredButton(null)}
+              >
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => setIsAddingLabel(!isAddingLabel)}
+                  className={`w-10 h-10 flex items-center justify-center rounded shadow-lg border transition-all ${
+                    isAddingLabel
+                      ? 'bg-violet-600 border-violet-500 text-white'
+                      : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+                  }`}
+                  title={isAddingLabel ? 'Cancel Labeling' : 'Add Label'}
+                >
+                  <MapPin size={18} />
+                </button>
+                {hoveredButton === 'label' && (
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 shadow-xl w-48 z-50 pointer-events-none">
+                    <div className="text-slate-100 font-medium text-sm">Add Labels</div>
+                    <div className="text-slate-400 text-xs">Click on the map to add place names.</div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2314,7 +2351,7 @@ export default function TopographicMapCreator() {
 
         {/* Bottom Left - Legend */}
         <div
-          className="fixed bottom-3 left-3 z-50 bg-slate-800/50 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50"
+          className={isSplitMode ? "absolute bottom-3 left-3 z-50 bg-slate-800/50 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50 pointer-events-auto" : "fixed bottom-3 left-3 z-50 bg-slate-800/50 backdrop-blur rounded px-2 py-1.5 border border-slate-600/50"}
           onMouseEnter={() => setHoveredButton('legend')}
           onMouseLeave={() => setHoveredButton(null)}
           style={{ width: 'fit-content' }}
@@ -2340,7 +2377,7 @@ export default function TopographicMapCreator() {
         </div>
 
         {/* Bottom Right - Zoom */}
-        <div className="fixed bottom-4 right-4 z-50 text-center">
+        <div className={isSplitMode ? "absolute bottom-4 right-4 z-50 text-center pointer-events-auto" : "fixed bottom-4 right-4 z-50 text-center"}>
           <div className="bg-slate-900/50 backdrop-blur px-4 py-2 rounded border border-slate-600 text-slate-300 text-sm font-medium mb-2">
             {(zoom * 100).toFixed(0)}%
           </div>
@@ -2362,12 +2399,12 @@ export default function TopographicMapCreator() {
         )}
 
         {/* Bottom Center - Help */}
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 text-center text-slate-400 text-sm">
+        <div className={isSplitMode ? "absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50 text-center text-slate-400 text-sm pointer-events-auto" : "fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 text-center text-slate-400 text-sm"}>
           {isAddingLabel ? '📍 Click to label' : isPanMode ? '🖱️ Drag to pan' : '🗺️ Left: land • Right: ocean • Shift: flatten'}
         </div>
 
         {/* Version Number */}
-        <div className="fixed bottom-1 right-2 z-40 text-slate-600 text-xs font-mono">
+        <div className={isSplitMode ? "absolute bottom-1 right-2 z-40 text-slate-600 text-xs font-mono pointer-events-auto" : "fixed bottom-1 right-2 z-40 text-slate-600 text-xs font-mono"}>
           v1.2.0
         </div>
 
@@ -2927,35 +2964,16 @@ export default function TopographicMapCreator() {
         )}
       </div>
 
-      {/* Right Panel: 3D Viewer (Split Mode Only) */}
-      {viewMode === ViewMode.SPLIT_EDIT && (
-        <div className="relative h-full w-full overflow-hidden">
-          <TerrainViewer3D
-            elevationData={elevationDataRef.current}
-            biomeData={biomeDataRef.current}
-            canvasWidth={canvasWidth}
-            canvasHeight={canvasHeight}
-            onClose={() => setViewMode(ViewMode.FULL_2D)}
-            embedded={true}
-          />
-        </div>
-      )}
-
-      {/* Close grid container for split mode */}
-      {viewMode === ViewMode.SPLIT_EDIT && </div>}
+        {/* Right Panel: 3D Viewer (Split Mode Only) */}
+        {isSplitMode && (
+          <div className="relative h-full w-full overflow-hidden">
+            {splitMode3DViewer}
+          </div>
+        )}
+      </div>
 
       {/* 3D Terrain Viewer - Full overlay mode only */}
-      {viewMode === ViewMode.FULL_3D && (
-        <TerrainViewer3D
-          elevationData={elevationDataRef.current}
-          biomeData={biomeDataRef.current}
-          canvasWidth={canvasWidth}
-          canvasHeight={canvasHeight}
-          onClose={() => setViewMode(ViewMode.FULL_2D)}
-          embedded={false}
-        />
-      )}
-      </div>
+      {viewMode === ViewMode.FULL_3D && fullMode3DViewer}
     </div>
   );
 }

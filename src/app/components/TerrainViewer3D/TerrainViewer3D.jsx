@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { X, Mountain, Layers } from 'lucide-react';
@@ -20,7 +20,7 @@ function LoadingSpinner() {
   );
 }
 
-export default function TerrainViewer3D({
+function TerrainViewer3D({
   elevationData,
   biomeData,
   canvasWidth,
@@ -165,3 +165,6 @@ export default function TerrainViewer3D({
     </div>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export default React.memo(TerrainViewer3D);
